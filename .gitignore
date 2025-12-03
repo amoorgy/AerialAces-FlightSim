@@ -1,0 +1,43 @@
+# Build directories
+build/
+bin/
+lib/
+*.o
+*.obj
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Compiled binaries
+*.exe
+*.out
+*.app
+AerialAces
+
+# Logs
+*.log
+log/
+
+# Assets (uncomment if not tracking large files)
+# assets/models/*.obj
+# assets/textures/*.png
+# assets/sounds/*.wav
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.swp
+*.swo
+*~
