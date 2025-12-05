@@ -1,5 +1,6 @@
 # Build directories
 build/
+out/
 bin/
 lib/
 *.o
@@ -17,27 +18,81 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+CMakePresets.json
+CMakeUserPresets.json
+
+# Visual Studio files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+.vs/
+x64/
+Debug/
+Release/
 
 # Compiled binaries
 *.exe
 *.out
 *.app
+*.dll
+*.so
+*.dylib
+*.pdb
 AerialAces
 
 # Logs
 *.log
 log/
 
-# Assets (uncomment if not tracking large files)
-# assets/models/*.obj
-# assets/textures/*.png
-# assets/sounds/*.wav
+# Large asset files (GitHub 100MB limit)
+# 3D Models - large formats
+*.fbx
+*.blend
+*.blend1
+*.max
+*.mb
+*.ma
+
+# Large audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+
+# Large texture files (keep small ones)
+*.psd
+*.xcf
+*.tga
+*.bmp
+
+# Video files
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Archives
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
 
 # System files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Temporary files
 *.swp
 *.swo
 *~
+*.tmp
+*.temp
+
+# vcpkg installed packages (can be restored)
+vcpkg_installed/
+
+# Node modules (if any web tools)
+node_modules/

@@ -212,7 +212,3 @@ void Model::getBounds(float& minX, float& maxX, float& minY, float& maxY, float&
 void Model::setScale(float scale) {
     scaleFactor = scale;
 }
-
-float Model::getScale() const {
-    return scaleFactor;
-}

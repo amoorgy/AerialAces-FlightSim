@@ -6,8 +6,9 @@
 #include <OpenGL/gl.h>
 #include <GLUT/glut.h>
 #else
-#include <GL/gl.h>
-#include <GL/glut.h>
+// On Windows, GLEW must be included before GL headers
+#include <GL/glew.h>
+#include <GL/freeglut.h>
 #endif
 
 #ifndef M_PI

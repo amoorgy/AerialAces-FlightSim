@@ -29,9 +29,9 @@
 #include <OpenGL/glu.h>
 #include <GLUT/glut.h>
 #else
-#include <GL/gl.h>
-#include <GL/glu.h>
-#include <GL/glut.h>
+// On Windows, GLEW must be included before GL headers
+#include <GL/glew.h>
+#include <GL/freeglut.h>
 #endif
 
 #include "game/Game.h"

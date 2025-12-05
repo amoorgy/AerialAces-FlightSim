@@ -22,22 +22,16 @@ if(APPLE)
     set(PLATFORM_LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES})
 elseif(WIN32)
     # Windows using freeglut and GLEW
-    # Try to use vcpkg if available
-    if(DEFINED ENV{VCPKG_ROOT})
-        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
-    endif()
-    
     find_package(GLUT REQUIRED)
     find_package(GLEW REQUIRED)
     
-    # Additional Windows-specific settings
-    add_definitions(-DGLEW_STATIC)
-    add_definitions(-DFREEGLUT_STATIC)
+    # Include GLEW headers
+    include_directories(${GLEW_INCLUDE_DIRS})
     
     set(PLATFORM_LIBS 
         ${OPENGL_LIBRARIES} 
         ${GLUT_LIBRARIES} 
-        ${GLEW_LIBRARIES}
+        GLEW::GLEW
         opengl32
         glu32
     )

@@ -6,8 +6,9 @@
 #include <OpenGL/gl.h>
 #include <GLUT/glut.h>
 #else
-#include <GL/gl.h>
-#include <GL/glut.h>
+// On Windows, GLEW must be included before GL headers
+#include <GL/glew.h>
+#include <GL/freeglut.h>
 #endif
 
 #ifndef M_PI
@@ -77,7 +78,7 @@ bool Collectible::loadModel(const std::string& modelPath, const std::string& tex
     // Load model
     ringModel = new Model();
     if (!ringModel->load(modelPath)) {
-        std::cerr << \"Collectible: Failed to load ring model, will use primitives\" << std::endl;
+        std::cerr << "Collectible: Failed to load ring model, will use primitives" << std::endl;
         delete ringModel;
         ringModel = nullptr;
         useModel = false;
@@ -90,16 +91,16 @@ bool Collectible::loadModel(const std::string& modelPath, const std::string& tex
     if (!texturePath.empty()) {
         ringTexture = new Texture();
         if (!ringTexture->load(texturePath)) {
-            std::cerr << \"Collectible: Warning - failed to load texture, using model without texture\" << std::endl;
+            std::cerr << "Collectible: Warning - failed to load texture, using model without texture" << std::endl;
             delete ringTexture;
             ringTexture = nullptr;
         } else {
-            std::cout << \"Collectible: Texture loaded successfully!\" << std::endl;
+            std::cout << "Collectible: Texture loaded successfully!" << std::endl;
         }
     }
     
     useModel = true;
-    std::cout << \"Collectible: Ring model loaded successfully!\" << std::endl;
+    std::cout << "Collectible: Ring model loaded successfully!" << std::endl;
     return true;
 }
 
