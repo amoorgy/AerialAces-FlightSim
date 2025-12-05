@@ -70,6 +70,7 @@ private:
     // Internal methods
     void createTerrain();
     void createRings();
+    void loadModels();  // Load 3D models for entities
     void checkCollisions();
     void triggerCrash(float x, float y, float z);
     void renderHUD();

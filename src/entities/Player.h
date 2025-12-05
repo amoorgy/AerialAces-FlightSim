@@ -1,6 +1,8 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
+#include "../rendering/Model.h"
+
 /**
  * @class Player
  * @brief Fighter aircraft controlled by the player
@@ -47,9 +49,21 @@ private:
     // State
     bool alive;
     
+    // 3D Model
+    Model* aircraftModel;
+    bool useModel;  // Flag to use model vs primitives
+    
 public:
     Player();
     Player(float startX, float startY, float startZ);
+    ~Player();  // Destructor to clean up model
+    
+    /**
+     * Load 3D model for aircraft
+     * @param modelPath Path to OBJ file
+     * @param scale Scale factor for the model
+     */
+    bool loadModel(const std::string& modelPath, float scale = 1.0f);
     
     /**
      * Update player physics and position

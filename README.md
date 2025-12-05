@@ -2,6 +2,27 @@
 
 A 3D flight simulator game built with C++ and OpenGL featuring aerial combat, precision flying challenges, and dynamic enemy AI.
 
+---
+
+## 🪟 **Windows Users - Quick Start**
+
+**New! Full Windows support with 3D model loading:**
+
+1. **Read the quick start guide:** [`WINDOWS_QUICKSTART.md`](WINDOWS_QUICKSTART.md)
+2. **Run the build script:**
+   ```powershell
+   .\build_windows.ps1
+   ```
+3. **Launch the game:**
+   ```cmd
+   cd build\bin
+   TopGunMaverick.exe
+   ```
+
+**Need help?** See [`WINDOWS_BUILD.md`](WINDOWS_BUILD.md) for detailed setup instructions.
+
+---
+
 ## Game Description
 
 **Aerial Aces** is an action-packed flight simulator where players pilot military aircraft through challenging aerial combat scenarios. The game combines realistic flight physics with arcade-style gameplay, offering both precision flying challenges and intense dogfighting action.

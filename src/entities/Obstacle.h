@@ -1,6 +1,9 @@
 #ifndef OBSTACLE_H
 #define OBSTACLE_H
 
+#include "../rendering/Model.h"
+#include <string>
+
 /**
  * @enum ObstacleType
  * @brief Types of obstacles in the game
@@ -38,11 +41,23 @@ private:
     // For mountains specifically
     float baseRadius;  // Base radius of cone
     
+    // 3D Model support
+    Model* obstacleModel;
+    bool useModel;  // Flag to use model vs primitives
+    
 public:
     Obstacle();
     Obstacle(float posX, float posY, float posZ, 
              float w, float h, float d, 
              ObstacleType obstacleType);
+    ~Obstacle();  // Destructor to clean up
+    
+    /**
+     * Load 3D model for obstacle (mountains, rocks, etc.)
+     * @param modelPath Path to OBJ file
+     * @param scale Scale factor for the model
+     */
+    bool loadModel(const std::string& modelPath, float scale = 1.0f);
     
     /**
      * Render the obstacle

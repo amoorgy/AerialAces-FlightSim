@@ -1,0 +1,39 @@
+#ifndef TEXTURE_H
+#define TEXTURE_H
+
+#include <string>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#include <GLUT/glut.h>
+#else
+#include <GL/glew.h>
+#include <GL/glut.h>
+#endif
+
+class Texture {
+public:
+    Texture();
+    ~Texture();
+    
+    // Load a texture from file (JPEG, PNG, BMP, etc.)
+    bool load(const std::string& filepath);
+    
+    // Bind texture for rendering
+    void bind() const;
+    
+    // Unbind texture
+    void unbind() const;
+    
+    // Check if texture is loaded
+    bool isLoaded() const { return loaded; }
+    
+    // Get OpenGL texture ID
+    GLuint getID() const { return textureID; }
+
+private:
+    bool loaded;
+    GLuint textureID;
+    int width, height, channels;
+};
+
+#endif // TEXTURE_H

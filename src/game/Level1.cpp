@@ -59,6 +59,9 @@ void Level1::init() {
     createTerrain();
     createRings();
     
+    // Load 3D models (with error handling/fallback to primitives)
+    loadModels();
+    
     // Start timer
     timer.start(startTime);
     
@@ -154,6 +157,50 @@ void Level1::createRings() {
             rings[i]->setColor(0.0f, 1.0f, 0.9f);  // Cyan
         }
     }
+}
+
+void Level1::loadModels() {
+    std::cout << "\n=== Loading 3D Models ===" << std::endl;
+    
+    // Load aircraft model for player
+    if (player != nullptr) {
+        std::cout << "\nAttempting to load aircraft model..." << std::endl;
+        bool success = player->loadModel("assets/plane 1.obj", 0.5f);
+        if (!success) {
+            std::cout << "Aircraft model failed to load, using primitive fallback" << std::endl;
+        }
+    }
+    
+    // Load ring model and texture for all collectibles
+    std::cout << "\nAttempting to load ring models..." << std::endl;
+    int ringLoadCount = 0;
+    for (auto* ring : rings) {
+        if (ring != nullptr) {
+            bool success = ring->loadModel("assets/Engagement Ring.obj", "assets/Engagement Ring.jpg", 1.0f);
+            if (success) ringLoadCount++;
+        }
+    }
+    std::cout << "Loaded " << ringLoadCount << "/" << rings.size() << " ring models successfully" << std::endl;
+    
+    // Load terrain model for mountains (optional - only for specific obstacles)
+    // For now, we'll keep mountains as primitives for variety
+    // Uncomment below if you want to use iceland.obj for some mountains
+    /*
+    std::cout << "\nAttempting to load terrain models..." << std::endl;
+    int terrainLoadCount = 0;
+    for (auto* obs : obstacles) {
+        if (obs != nullptr && obs->getType() == ObstacleType::MOUNTAIN) {
+            // Only load for first few mountains as example
+            if (terrainLoadCount < 3) {
+                bool success = obs->loadModel("assets/iceland.obj", 5.0f);
+                if (success) terrainLoadCount++;
+            }
+        }
+    }
+    std::cout << "Loaded " << terrainLoadCount << " terrain models successfully" << std::endl;
+    */
+    
+    std::cout << "=== Model Loading Complete ===\n" << std::endl;
 }
 
 void Level1::update(float deltaTime, const bool* keys) {

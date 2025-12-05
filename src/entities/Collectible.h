@@ -1,6 +1,10 @@
 #ifndef COLLECTIBLE_H
 #define COLLECTIBLE_H
 
+#include "../rendering/Model.h"
+#include "../rendering/Texture.h"
+#include <string>
+
 /**
  * @class Collectible
  * @brief Glowing rings that the player collects for points and bonus time
@@ -34,9 +38,23 @@ private:
     int pointValue;
     float bonusTime;
     
+    // 3D Model and Texture
+    Model* ringModel;
+    Texture* ringTexture;
+    bool useModel;  // Flag to use model vs primitives
+    
 public:
     Collectible();
     Collectible(float posX, float posY, float posZ);
+    ~Collectible();  // Destructor to clean up
+    
+    /**
+     * Load 3D model and texture for ring
+     * @param modelPath Path to OBJ file
+     * @param texturePath Path to texture file (optional)
+     * @param scale Scale factor for the model
+     */
+    bool loadModel(const std::string& modelPath, const std::string& texturePath = "", float scale = 1.0f);
     
     /**
      * Update animation

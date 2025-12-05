@@ -1,5 +1,6 @@
 #include "Collectible.h"
 #include <cmath>
+#include <iostream>
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -25,7 +26,10 @@ Collectible::Collectible()
       rotationAngle(0),
       colorR(1.0f), colorG(0.9f), colorB(0.0f),  // Golden yellow
       pointValue(100),
-      bonusTime(5.0f) {
+      bonusTime(5.0f),
+      ringModel(nullptr),
+      ringTexture(nullptr),
+      useModel(false) {
 }
 
 Collectible::Collectible(float posX, float posY, float posZ)
@@ -40,7 +44,63 @@ Collectible::Collectible(float posX, float posY, float posZ)
       rotationAngle(0),
       colorR(1.0f), colorG(0.9f), colorB(0.0f),  // Golden yellow
       pointValue(100),
-      bonusTime(5.0f) {
+      bonusTime(5.0f),
+      ringModel(nullptr),
+      ringTexture(nullptr),
+      useModel(false) {
+}
+
+Collectible::~Collectible() {
+    if (ringModel != nullptr) {
+        delete ringModel;
+        ringModel = nullptr;
+    }
+    if (ringTexture != nullptr) {
+        delete ringTexture;
+        ringTexture = nullptr;
+    }
+}
+
+bool Collectible::loadModel(const std::string& modelPath, const std::string& texturePath, float scale) {
+    std::cout << "Collectible: Loading ring model from " << modelPath << std::endl;
+    
+    // Clean up existing model/texture
+    if (ringModel != nullptr) {
+        delete ringModel;
+        ringModel = nullptr;
+    }
+    if (ringTexture != nullptr) {
+        delete ringTexture;
+        ringTexture = nullptr;
+    }
+    
+    // Load model
+    ringModel = new Model();
+    if (!ringModel->load(modelPath)) {
+        std::cerr << \"Collectible: Failed to load ring model, will use primitives\" << std::endl;
+        delete ringModel;
+        ringModel = nullptr;
+        useModel = false;
+        return false;
+    }
+    
+    ringModel->setScale(scale);
+    
+    // Load texture if provided
+    if (!texturePath.empty()) {
+        ringTexture = new Texture();
+        if (!ringTexture->load(texturePath)) {
+            std::cerr << \"Collectible: Warning - failed to load texture, using model without texture\" << std::endl;
+            delete ringTexture;
+            ringTexture = nullptr;
+        } else {
+            std::cout << \"Collectible: Texture loaded successfully!\" << std::endl;
+        }
+    }
+    
+    useModel = true;
+    std::cout << \"Collectible: Ring model loaded successfully!\" << std::endl;
+    return true;
 }
 
 void Collectible::update(float deltaTime) {
@@ -79,39 +139,54 @@ void Collectible::render() const {
     // Apply pulse scale
     glScalef(pulseScale, pulseScale, pulseScale);
     
-    // Draw outer glow (larger, semi-transparent)
-    glDisable(GL_LIGHTING);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    
-    glColor4f(colorR, colorG, colorB, glowIntensity * 0.3f);
-    glutSolidTorus(innerRadius * 2.0f, outerRadius * 1.2f, 16, 32);
-    
-    glDisable(GL_BLEND);
-    glEnable(GL_LIGHTING);
-    
-    // Draw main ring
-    glColor3f(colorR * glowIntensity, colorG * glowIntensity, colorB * glowIntensity);
-    glutSolidTorus(innerRadius, outerRadius, 16, 32);
-    
-    // Draw inner bright core
-    glDisable(GL_LIGHTING);
-    glColor3f(1.0f, 1.0f, colorB * 0.5f + 0.5f);  // Brighter core
-    glutSolidTorus(innerRadius * 0.5f, outerRadius, 8, 32);
-    glEnable(GL_LIGHTING);
+    // Use 3D model if loaded, otherwise use primitives
+    if (useModel && ringModel != nullptr && ringModel->isLoaded()) {
+        // Enable texture if available
+        if (ringTexture != nullptr && ringTexture->isLoaded()) {
+            ringTexture->bind();
+        }
+        
+        // Set glowing color
+        glColor3f(colorR * glowIntensity, colorG * glowIntensity, colorB * glowIntensity);
+        
+        // Enable lighting for proper model rendering
+        GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
+        if (!lightingEnabled) glEnable(GL_LIGHTING);
+        
+        // Render the 3D model
+        ringModel->render();
+        
+        if (!lightingEnabled) glDisable(GL_LIGHTING);
+        
+        // Unbind texture
+        if (ringTexture != nullptr && ringTexture->isLoaded()) {
+            ringTexture->unbind();
+        }
+    } else {
+        // Fallback: Draw using primitives
+        // Draw outer glow (larger, semi-transparent)
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        
+        glColor4f(colorR, colorG, colorB, glowIntensity * 0.3f);
+        glutSolidTorus(innerRadius * 2.0f, outerRadius * 1.2f, 16, 32);
+        
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+        
+        // Draw main ring
+        glColor3f(colorR * glowIntensity, colorG * glowIntensity, colorB * glowIntensity);
+        glutSolidTorus(innerRadius, outerRadius, 16, 32);
+        
+        // Draw inner bright core
+        glDisable(GL_LIGHTING);
+        glColor3f(1.0f, 1.0f, colorB * 0.5f + 0.5f);  // Brighter core
+        glutSolidTorus(innerRadius * 0.5f, outerRadius, 8, 32);
+        glEnable(GL_LIGHTING);
+    }
     
     glPopMatrix();
-    
-    // Draw collection sphere indicator (debug, can be removed)
-    /*
-    glPushMatrix();
-    glTranslatef(x, y, z);
-    glColor4f(0.0f, 1.0f, 0.0f, 0.2f);
-    glEnable(GL_BLEND);
-    glutWireSphere(collisionRadius, 8, 8);
-    glDisable(GL_BLEND);
-    glPopMatrix();
-    */
 }
 
 void Collectible::collect() {

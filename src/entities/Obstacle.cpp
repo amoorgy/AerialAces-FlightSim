@@ -1,5 +1,6 @@
 #include "Obstacle.h"
 #include <cmath>
+#include <iostream>
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -14,7 +15,9 @@ Obstacle::Obstacle()
       width(10), height(30), depth(10),
       type(ObstacleType::MOUNTAIN),
       colorR(0.5f), colorG(0.4f), colorB(0.3f),
-      baseRadius(15.0f) {
+      baseRadius(15.0f),
+      obstacleModel(nullptr),
+      useModel(false) {
 }
 
 Obstacle::Obstacle(float posX, float posY, float posZ, 
@@ -24,7 +27,9 @@ Obstacle::Obstacle(float posX, float posY, float posZ,
       width(w), height(h), depth(d),
       type(obstacleType),
       colorR(0.5f), colorG(0.4f), colorB(0.3f),
-      baseRadius(w / 2.0f) {
+      baseRadius(w / 2.0f),
+      obstacleModel(nullptr),
+      useModel(false) {
     
     // Set default colors based on type
     switch (type) {
@@ -43,27 +48,71 @@ Obstacle::Obstacle(float posX, float posY, float posZ,
     }
 }
 
+Obstacle::~Obstacle() {
+    if (obstacleModel != nullptr) {
+        delete obstacleModel;
+        obstacleModel = nullptr;
+    }
+}
+
+bool Obstacle::loadModel(const std::string& modelPath, float scale) {
+    std::cout << "Obstacle: Loading model from " << modelPath << std::endl;
+    
+    if (obstacleModel != nullptr) {
+        delete obstacleModel;
+    }
+    
+    obstacleModel = new Model();
+    if (obstacleModel->load(modelPath)) {
+        obstacleModel->setScale(scale);
+        useModel = true;
+        std::cout << "Obstacle: Model loaded successfully!" << std::endl;
+        return true;
+    } else {
+        std::cerr << "Obstacle: Failed to load model, will use primitives" << std::endl;
+        delete obstacleModel;
+        obstacleModel = nullptr;
+        useModel = false;
+        return false;
+    }
+}
+
 void Obstacle::render() const {
     glPushMatrix();
     
     glColor3f(colorR, colorG, colorB);
     
-    switch (type) {
-        case ObstacleType::MOUNTAIN:
-            // Render as cone
-            glTranslatef(x, y, z);
-            glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);  // Point cone upward
-            
-            // Main mountain cone
-            glutSolidCone(baseRadius, height, 12, 8);
-            
-            // Add some detail - snow cap on tall mountains
-            if (height > 40.0f) {
-                glColor3f(0.95f, 0.95f, 0.98f);  // White snow
-                glTranslatef(0.0f, 0.0f, height * 0.7f);
-                glutSolidCone(baseRadius * 0.3f, height * 0.3f, 8, 4);
-            }
-            break;
+    // Use 3D model if loaded, otherwise use primitives
+    if (useModel && obstacleModel != nullptr && obstacleModel->isLoaded()) {
+        // Position the model
+        glTranslatef(x, y, z);
+        
+        // Enable lighting for proper model rendering
+        GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
+        if (!lightingEnabled) glEnable(GL_LIGHTING);
+        
+        // Render the 3D model
+        obstacleModel->render();
+        
+        if (!lightingEnabled) glDisable(GL_LIGHTING);
+    } else {
+        // Fallback: Use primitives based on type
+        switch (type) {
+            case ObstacleType::MOUNTAIN:
+                // Render as cone
+                glTranslatef(x, y, z);
+                glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);  // Point cone upward
+                
+                // Main mountain cone
+                glutSolidCone(baseRadius, height, 12, 8);
+                
+                // Add some detail - snow cap on tall mountains
+                if (height > 40.0f) {
+                    glColor3f(0.95f, 0.95f, 0.98f);  // White snow
+                    glTranslatef(0.0f, 0.0f, height * 0.7f);
+                    glutSolidCone(baseRadius * 0.3f, height * 0.3f, 8, 4);
+                }
+                break;
             
         case ObstacleType::GROUND:
             // Render as flat quad
@@ -107,6 +156,7 @@ void Obstacle::render() const {
             glScalef(width / 2.0f, height / 2.0f, depth / 2.0f);
             glutSolidSphere(1.0, 8, 6);
             break;
+        }
     }
     
     glPopMatrix();

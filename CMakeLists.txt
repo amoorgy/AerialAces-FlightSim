@@ -21,10 +21,36 @@ if(APPLE)
     add_definitions(-DGL_SILENCE_DEPRECATION)
     set(PLATFORM_LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES})
 elseif(WIN32)
-    # Windows using freeglut
+    # Windows using freeglut and GLEW
+    # Try to use vcpkg if available
+    if(DEFINED ENV{VCPKG_ROOT})
+        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+    endif()
+    
     find_package(GLUT REQUIRED)
     find_package(GLEW REQUIRED)
-    set(PLATFORM_LIBS ${OPENGL_LIBRARIES} ${GLUT_LIBRARIES} ${GLEW_LIBRARIES})
+    
+    # Additional Windows-specific settings
+    add_definitions(-DGLEW_STATIC)
+    add_definitions(-DFREEGLUT_STATIC)
+    
+    set(PLATFORM_LIBS 
+        ${OPENGL_LIBRARIES} 
+        ${GLUT_LIBRARIES} 
+        ${GLEW_LIBRARIES}
+        opengl32
+        glu32
+    )
+    
+    # Copy DLLs to output directory for runtime
+    if(GLUT_FOUND AND EXISTS "${GLUT_LIBRARY_DIRS}")
+        file(GLOB GLUT_DLLS "${GLUT_LIBRARY_DIRS}/*.dll")
+        foreach(dll ${GLUT_DLLS})
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${dll} $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+        endforeach()
+    endif()
 else()
     # Linux
     find_package(GLUT REQUIRED)
@@ -48,6 +74,8 @@ set(SOURCES
     src/entities/Obstacle.cpp
     src/rendering/Camera.cpp
     src/rendering/Lighting.cpp
+    src/rendering/Model.cpp
+    src/rendering/Texture.cpp
     src/physics/Collision.cpp
     src/utils/Timer.cpp
     src/utils/Input.cpp
@@ -63,6 +91,10 @@ set(HEADERS
     src/entities/Obstacle.h
     src/rendering/Camera.h
     src/rendering/Lighting.h
+    src/rendering/Model.h
+    src/rendering/Texture.h
+    src/rendering/tiny_obj_loader.h
+    src/rendering/stb_image.h
     src/physics/Collision.h
     src/utils/Timer.h
     src/utils/Input.h
@@ -82,7 +114,21 @@ if(APPLE)
         MACOSX_BUNDLE FALSE
     )
 elseif(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /EHsc)
+    # Set subsystem to CONSOLE so we can see debug output
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        LINK_FLAGS "/SUBSYSTEM:CONSOLE"
+    )
+    # Disable specific MSVC warnings
+    target_compile_options(${PROJECT_NAME} PRIVATE 
+        /wd4996  # Disable deprecation warnings
+        /wd4244  # Disable conversion warnings
+        /wd4267  # Disable size_t conversion warnings
+    )
+elseif(MINGW)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+    # Link statically to avoid DLL dependencies
+    target_link_options(${PROJECT_NAME} PRIVATE -static-libgcc -static-libstdc++)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 endif()
