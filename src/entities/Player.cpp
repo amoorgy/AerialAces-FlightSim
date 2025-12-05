@@ -16,16 +16,16 @@
 #endif
 
 Player::Player() 
-    : x(0), y(15), z(0),
+    : x(0), y(80), z(0),  // Start high up
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
       speed(0.8f),
-      maxSpeed(2.0f),
+      maxSpeed(2.5f),
       minSpeed(0.3f),
       acceleration(0.5f),
-      pitchSpeed(80.0f),
-      yawSpeed(60.0f),
-      rollSpeed(120.0f),
+      pitchSpeed(60.0f),
+      yawSpeed(50.0f),
+      rollSpeed(90.0f),
       gravity(9.8f),
       lift(0),
       boundingRadius(3.0f),
@@ -42,12 +42,12 @@ Player::Player(float startX, float startY, float startZ)
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
       speed(0.8f),
-      maxSpeed(2.0f),
+      maxSpeed(2.5f),
       minSpeed(0.3f),
       acceleration(0.5f),
-      pitchSpeed(80.0f),
-      yawSpeed(60.0f),
-      rollSpeed(120.0f),
+      pitchSpeed(60.0f),
+      yawSpeed(50.0f),
+      rollSpeed(90.0f),
       gravity(9.8f),
       lift(0),
       boundingRadius(3.0f),
@@ -77,7 +77,16 @@ bool Player::loadModel(const std::string& modelPath, float scale) {
     if (aircraftModel->load(modelPath)) {
         aircraftModel->setScale(scale);
         useModel = true;
+        
+        // Update bounding radius based on model size
+        float minX, maxX, minY, maxY, minZ, maxZ;
+        aircraftModel->getBounds(minX, maxX, minY, maxY, minZ, maxZ);
+        float sizeX = maxX - minX;
+        float sizeZ = maxZ - minZ;
+        boundingRadius = std::max(sizeX, sizeZ) / 2.0f;
+        
         std::cout << "Player: Aircraft model loaded successfully!" << std::endl;
+        std::cout << "Player: Bounding radius set to " << boundingRadius << std::endl;
         return true;
     } else {
         std::cerr << "Player: Failed to load aircraft model, will use primitives" << std::endl;
@@ -124,7 +133,7 @@ void Player::update(float deltaTime, const bool* keys) {
     
     // Apply roll-based turn (more realistic banking)
     float rollFactor = std::sin(roll * M_PI / 180.0f);
-    yaw += rollFactor * 30.0f * deltaTime;
+    yaw += rollFactor * 25.0f * deltaTime;
     
     // Natural roll recovery (roll back towards level)
     if (!keys['a'] && !keys['A'] && !keys['d'] && !keys['D']) {
@@ -136,17 +145,23 @@ void Player::update(float deltaTime, const bool* keys) {
         pitch *= (1.0f - deltaTime * 1.5f);
     }
     
-    // Clamp pitch to prevent loops (optional, can remove for arcade feel)
-    if (pitch > 60.0f) pitch = 60.0f;
-    if (pitch < -60.0f) pitch = -60.0f;
+    // Clamp pitch to prevent extreme angles
+    if (pitch > 45.0f) pitch = 45.0f;
+    if (pitch < -45.0f) pitch = -45.0f;
     
     // Clamp roll
-    if (roll > 70.0f) roll = 70.0f;
-    if (roll < -70.0f) roll = -70.0f;
+    if (roll > 60.0f) roll = 60.0f;
+    if (roll < -60.0f) roll = -60.0f;
     
     // Keep yaw in 0-360 range
     while (yaw >= 360.0f) yaw -= 360.0f;
     while (yaw < 0.0f) yaw += 360.0f;
+    
+    // Minimum altitude enforcement (ground is at Y=0)
+    if (y < 10.0f) {
+        y = 10.0f;
+        if (pitch > 0) pitch = 0;  // Force level or climb
+    }
 }
 
 void Player::applyInput(const bool* keys, float deltaTime) {
@@ -176,8 +191,7 @@ void Player::applyInput(const bool* keys, float deltaTime) {
         yaw += yawSpeed * deltaTime;
     }
     
-    // Speed control (Shift to boost, Ctrl to slow)
-    // Using numeric keys as alternative: 1 = slow, 2 = fast
+    // Speed control (1/2)
     if (keys['1']) {
         speed -= acceleration * deltaTime;
         if (speed < minSpeed) speed = minSpeed;
@@ -189,7 +203,6 @@ void Player::applyInput(const bool* keys, float deltaTime) {
     
     // Barrel roll (Space or B)
     if ((keys[' '] || keys['b'] || keys['B']) && !barrelRolling) {
-        // Direction based on current roll
         int direction = (roll >= 0) ? 1 : -1;
         if (keys['a'] || keys['A']) direction = -1;
         if (keys['d'] || keys['D']) direction = 1;
@@ -213,18 +226,18 @@ void Player::render() const {
     
     // Use 3D model if loaded, otherwise use primitives
     if (useModel && aircraftModel != nullptr && aircraftModel->isLoaded()) {
-        // Set material properties for the model
-        glColor3f(0.7f, 0.7f, 0.7f);  // Light gray base color
+        glColor3f(0.8f, 0.8f, 0.8f);
         
-        // Enable lighting for proper model rendering
         GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
         if (!lightingEnabled) glEnable(GL_LIGHTING);
         
-        // Correct model orientation - rotate to point forward (nose along +Z axis)
-        glRotatef(90.0f, 0.0f, 1.0f, 0.0f);   // Rotate around Y to face forward
-        glRotatef(180.0f, 1.0f, 0.0f, 0.0f);  // Flip upright if model is inverted
+        // Correct model orientation for Japanese WWII plane
+        // The model is oriented with nose pointing in -Y direction
+        // 1. Rotate 90 degrees around X to point nose forward (into +Z)
+        // 2. Rotate 180 degrees around Y to flip so nose points in correct direction
+        glRotatef(90.0f, 1.0f, 0.0f, 0.0f);   // Nose forward (model's -Y becomes +Z)
+        glRotatef(180.0f, 0.0f, 1.0f, 0.0f);  // Face correct direction
         
-        // Render the 3D model
         aircraftModel->render();
         
         if (!lightingEnabled) glDisable(GL_LIGHTING);
@@ -233,57 +246,57 @@ void Player::render() const {
         // Fuselage (main body)
         glColor3f(0.2f, 0.3f, 0.8f);  // Navy blue
         glPushMatrix();
-        glScalef(1.0f, 0.6f, 4.0f);
+        glScalef(2.0f, 1.2f, 8.0f);
         glutSolidCube(1.0);
         glPopMatrix();
         
         // Cockpit
         glColor3f(0.3f, 0.7f, 0.9f);  // Light blue (glass)
         glPushMatrix();
-        glTranslatef(0.0f, 0.4f, 0.5f);
-        glScalef(0.6f, 0.4f, 1.0f);
+        glTranslatef(0.0f, 0.8f, 1.0f);
+        glScalef(1.2f, 0.8f, 2.0f);
         glutSolidSphere(0.5, 10, 10);
         glPopMatrix();
         
         // Main wings
         glColor3f(0.3f, 0.4f, 0.7f);  // Lighter blue
         glPushMatrix();
-        glScalef(6.0f, 0.15f, 1.5f);
+        glScalef(12.0f, 0.3f, 3.0f);
         glutSolidCube(1.0);
         glPopMatrix();
         
         // Tail wings (horizontal stabilizers)
         glPushMatrix();
-        glTranslatef(0.0f, 0.0f, -1.8f);
-        glScalef(2.5f, 0.1f, 0.6f);
+        glTranslatef(0.0f, 0.0f, -3.6f);
+        glScalef(5.0f, 0.2f, 1.2f);
         glutSolidCube(1.0);
         glPopMatrix();
         
         // Vertical tail fin
         glColor3f(0.25f, 0.35f, 0.75f);
         glPushMatrix();
-        glTranslatef(0.0f, 0.6f, -1.8f);
-        glScalef(0.1f, 1.2f, 0.6f);
+        glTranslatef(0.0f, 1.2f, -3.6f);
+        glScalef(0.2f, 2.4f, 1.2f);
         glutSolidCube(1.0);
         glPopMatrix();
         
-        // Engine exhaust (small sphere at back)
-        glColor3f(0.9f, 0.5f, 0.1f);  // Orange glow
+        // Engine exhaust
+        glColor3f(1.0f, 0.5f, 0.1f);  // Orange glow
         glPushMatrix();
-        glTranslatef(0.0f, 0.0f, -2.2f);
-        glutSolidSphere(0.25, 8, 8);
+        glTranslatef(0.0f, 0.0f, -4.4f);
+        glutSolidSphere(0.5, 8, 8);
         glPopMatrix();
         
         // Wing tips
         glColor3f(1.0f, 0.0f, 0.0f);  // Red
         glPushMatrix();
-        glTranslatef(3.0f, 0.0f, 0.0f);
-        glutSolidSphere(0.15, 6, 6);
+        glTranslatef(6.0f, 0.0f, 0.0f);
+        glutSolidSphere(0.3, 6, 6);
         glPopMatrix();
         
         glPushMatrix();
-        glTranslatef(-3.0f, 0.0f, 0.0f);
-        glutSolidSphere(0.15, 6, 6);
+        glTranslatef(-6.0f, 0.0f, 0.0f);
+        glutSolidSphere(0.3, 6, 6);
         glPopMatrix();
     }
     

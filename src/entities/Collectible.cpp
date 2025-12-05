@@ -16,18 +16,18 @@
 #endif
 
 Collectible::Collectible()
-    : x(0), y(10), z(0),
-      innerRadius(0.5f),
-      outerRadius(4.0f),
-      collisionRadius(5.0f),
+    : x(0), y(25), z(0),
+      innerRadius(0.8f),
+      outerRadius(5.0f),
+      collisionRadius(6.0f),
       collected(false),
       animTime(0),
       pulseScale(1.0f),
       glowIntensity(1.0f),
       rotationAngle(0),
-      colorR(1.0f), colorG(0.9f), colorB(0.0f),  // Golden yellow
+      colorR(1.0f), colorG(0.9f), colorB(0.0f),
       pointValue(100),
-      bonusTime(5.0f),
+      bonusTime(10.0f),
       ringModel(nullptr),
       ringTexture(nullptr),
       useModel(false) {
@@ -35,17 +35,17 @@ Collectible::Collectible()
 
 Collectible::Collectible(float posX, float posY, float posZ)
     : x(posX), y(posY), z(posZ),
-      innerRadius(0.5f),
-      outerRadius(4.0f),
-      collisionRadius(5.0f),
+      innerRadius(0.8f),
+      outerRadius(5.0f),
+      collisionRadius(6.0f),
       collected(false),
       animTime(0),
       pulseScale(1.0f),
       glowIntensity(1.0f),
       rotationAngle(0),
-      colorR(1.0f), colorG(0.9f), colorB(0.0f),  // Golden yellow
+      colorR(1.0f), colorG(0.9f), colorB(0.0f),
       pointValue(100),
-      bonusTime(5.0f),
+      bonusTime(10.0f),
       ringModel(nullptr),
       ringTexture(nullptr),
       useModel(false) {
@@ -65,7 +65,6 @@ Collectible::~Collectible() {
 bool Collectible::loadModel(const std::string& modelPath, const std::string& texturePath, float scale) {
     std::cout << "Collectible: Loading ring model from " << modelPath << std::endl;
     
-    // Clean up existing model/texture
     if (ringModel != nullptr) {
         delete ringModel;
         ringModel = nullptr;
@@ -75,7 +74,6 @@ bool Collectible::loadModel(const std::string& modelPath, const std::string& tex
         ringTexture = nullptr;
     }
     
-    // Load model
     ringModel = new Model();
     if (!ringModel->load(modelPath)) {
         std::cerr << "Collectible: Failed to load ring model, will use primitives" << std::endl;
@@ -87,37 +85,33 @@ bool Collectible::loadModel(const std::string& modelPath, const std::string& tex
     
     ringModel->setScale(scale);
     
-    // Load texture if provided
+    float minX, maxX, minY, maxY, minZ, maxZ;
+    ringModel->getBounds(minX, maxX, minY, maxY, minZ, maxZ);
+    float sizeX = maxX - minX;
+    float sizeY = maxY - minY;
+    collisionRadius = std::max(sizeX, sizeY) / 2.0f + 2.0f;
+    
     if (!texturePath.empty()) {
         ringTexture = new Texture();
         if (!ringTexture->load(texturePath)) {
-            std::cerr << "Collectible: Warning - failed to load texture, using model without texture" << std::endl;
+            std::cerr << "Collectible: Warning - failed to load texture" << std::endl;
             delete ringTexture;
             ringTexture = nullptr;
-        } else {
-            std::cout << "Collectible: Texture loaded successfully!" << std::endl;
         }
     }
     
     useModel = true;
-    std::cout << "Collectible: Ring model loaded successfully!" << std::endl;
+    std::cout << "Collectible: Ring model loaded! Collision radius: " << collisionRadius << std::endl;
     return true;
 }
 
 void Collectible::update(float deltaTime) {
     if (collected) return;
     
-    // Update animation time
     animTime += deltaTime;
-    
-    // Pulse scale animation (oscillates between 0.9 and 1.1)
     pulseScale = 1.0f + 0.1f * std::sin(animTime * 3.0f);
-    
-    // Glow intensity animation (oscillates between 0.6 and 1.0)
-    glowIntensity = 0.8f + 0.2f * std::sin(animTime * 2.5f + 0.5f);
-    
-    // Rotation animation
-    rotationAngle += 45.0f * deltaTime;  // 45 degrees per second
+    glowIntensity = 0.85f + 0.15f * std::sin(animTime * 2.5f + 0.5f);
+    rotationAngle += 30.0f * deltaTime;
     if (rotationAngle >= 360.0f) {
         rotationAngle -= 360.0f;
     }
@@ -128,62 +122,46 @@ void Collectible::render() const {
     
     glPushMatrix();
     
-    // Position
     glTranslatef(x, y, z);
-    
-    // Rotate to face player direction (vertical ring)
     glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-    
-    // Add slow rotation for visual interest
     glRotatef(rotationAngle, 0.0f, 1.0f, 0.0f);
-    
-    // Apply pulse scale
     glScalef(pulseScale, pulseScale, pulseScale);
     
-    // Use 3D model if loaded, otherwise use primitives
     if (useModel && ringModel != nullptr && ringModel->isLoaded()) {
-        // Enable texture if available
         if (ringTexture != nullptr && ringTexture->isLoaded()) {
             ringTexture->bind();
         }
         
-        // Set glowing color
         glColor3f(colorR * glowIntensity, colorG * glowIntensity, colorB * glowIntensity);
         
-        // Enable lighting for proper model rendering
         GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
         if (!lightingEnabled) glEnable(GL_LIGHTING);
         
-        // Render the 3D model
         ringModel->render();
         
         if (!lightingEnabled) glDisable(GL_LIGHTING);
         
-        // Unbind texture
         if (ringTexture != nullptr && ringTexture->isLoaded()) {
             ringTexture->unbind();
         }
     } else {
         // Fallback: Draw using primitives
-        // Draw outer glow (larger, semi-transparent)
         glDisable(GL_LIGHTING);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         
-        glColor4f(colorR, colorG, colorB, glowIntensity * 0.3f);
-        glutSolidTorus(innerRadius * 2.0f, outerRadius * 1.2f, 16, 32);
+        glColor4f(colorR, colorG, colorB, glowIntensity * 0.4f);
+        glutSolidTorus(innerRadius * 1.5f, outerRadius * 1.3f, 16, 32);
         
         glDisable(GL_BLEND);
         glEnable(GL_LIGHTING);
         
-        // Draw main ring
         glColor3f(colorR * glowIntensity, colorG * glowIntensity, colorB * glowIntensity);
-        glutSolidTorus(innerRadius, outerRadius, 16, 32);
+        glutSolidTorus(innerRadius, outerRadius, 20, 40);
         
-        // Draw inner bright core
         glDisable(GL_LIGHTING);
-        glColor3f(1.0f, 1.0f, colorB * 0.5f + 0.5f);  // Brighter core
-        glutSolidTorus(innerRadius * 0.5f, outerRadius, 8, 32);
+        glColor3f(1.0f, 1.0f, colorB * 0.5f + 0.5f);
+        glutSolidTorus(innerRadius * 0.5f, outerRadius, 12, 32);
         glEnable(GL_LIGHTING);
     }
     

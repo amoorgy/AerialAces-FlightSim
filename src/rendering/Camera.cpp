@@ -42,14 +42,12 @@ void Camera::update(const Player* player, float deltaTime) {
     
     if (firstPerson) {
         // First person: camera at player position, looking forward
-        // Slight offset forward from player center
         float offsetForward = 2.0f;
         
         targetPosX = playerX + std::sin(radYaw) * offsetForward;
         targetPosY = playerY;
         targetPosZ = playerZ + std::cos(radYaw) * offsetForward;
         
-        // Look direction based on player orientation
         float lookDist = 100.0f;
         lookX = playerX + std::sin(radYaw) * lookDist * std::cos(radPitch);
         lookY = playerY - std::sin(radPitch) * lookDist;
@@ -57,14 +55,17 @@ void Camera::update(const Player* player, float deltaTime) {
         
     } else {
         // Third person: camera behind and above player
+        // Position camera behind the player
         targetPosX = playerX - std::sin(radYaw) * distance;
-        targetPosY = playerY + height;
+        targetPosY = playerY + height;  // Above player
         targetPosZ = playerZ - std::cos(radYaw) * distance;
         
-        // Look at slightly ahead of player
-        float lookAhead = 5.0f;
+        // Look at a point ahead of and slightly below the player
+        // This creates a view where you can see both the plane and the ground below
+        float lookAhead = 20.0f;
+        float lookDown = 5.0f;  // Look slightly below player level
         lookX = playerX + std::sin(radYaw) * lookAhead;
-        lookY = playerY;
+        lookY = playerY - lookDown;  // Look slightly downward
         lookZ = playerZ + std::cos(radYaw) * lookAhead;
     }
     
@@ -81,12 +82,11 @@ void Camera::update(const Player* player, float deltaTime) {
     float radRoll = playerRoll * M_PI / 180.0f;
     
     if (firstPerson) {
-        // In first person, up vector affected by roll
         upX = std::sin(radRoll) * 0.3f;
         upY = std::cos(radRoll);
         upZ = 0;
     } else {
-        // In third person, keep up vector mostly vertical for stability
+        // Keep camera mostly level in third person
         upX = std::sin(radRoll) * 0.1f;
         upY = 1.0f;
         upZ = 0;
