@@ -127,8 +127,11 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
-# Copy assets to build directory
+# Copy assets to build directory (for when running from build root)
 file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})
+
+# Also copy assets to bin directory (for when running from bin folder)
+file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/..)
 
 # Installation
 install(TARGETS ${PROJECT_NAME}

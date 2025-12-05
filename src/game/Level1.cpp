@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -17,6 +18,31 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+// Helper function to find asset path (checks multiple locations)
+static std::string findAssetPath(const std::string& relativePath) {
+    // List of possible base paths to check
+    const char* basePaths[] = {
+        "",           // Current directory
+        "../",        // Parent directory (when running from bin/)
+        "../../",     // Two levels up
+        "../../../",  // Three levels up
+        nullptr
+    };
+    
+    for (int i = 0; basePaths[i] != nullptr; i++) {
+        std::string fullPath = std::string(basePaths[i]) + relativePath;
+        std::ifstream file(fullPath);
+        if (file.good()) {
+            std::cout << "Found asset at: " << fullPath << std::endl;
+            return fullPath;
+        }
+    }
+    
+    // Return original path if not found (let loading fail with proper error)
+    std::cout << "Asset not found in any location: " << relativePath << std::endl;
+    return relativePath;
+}
 
 Level1::Level1()
     : state(Level1State::PLAYING),
@@ -165,7 +191,8 @@ void Level1::loadModels() {
     // Load aircraft model for player
     if (player != nullptr) {
         std::cout << "\nAttempting to load aircraft model..." << std::endl;
-        bool success = player->loadModel("assets/plane 1.obj", 0.5f);
+        std::string planePath = findAssetPath("assets/plane 1.obj");
+        bool success = player->loadModel(planePath, 0.5f);
         if (!success) {
             std::cout << "Aircraft model failed to load, using primitive fallback" << std::endl;
         }
@@ -173,10 +200,13 @@ void Level1::loadModels() {
     
     // Load ring model and texture for all collectibles
     std::cout << "\nAttempting to load ring models..." << std::endl;
+    std::string ringModelPath = findAssetPath("assets/Engagement Ring.obj");
+    std::string ringTexturePath = findAssetPath("assets/Engagement Ring.jpg");
+    
     int ringLoadCount = 0;
     for (auto* ring : rings) {
         if (ring != nullptr) {
-            bool success = ring->loadModel("assets/Engagement Ring.obj", "assets/Engagement Ring.jpg", 1.0f);
+            bool success = ring->loadModel(ringModelPath, ringTexturePath, 1.0f);
             if (success) ringLoadCount++;
         }
     }
@@ -187,12 +217,13 @@ void Level1::loadModels() {
     // Uncomment below if you want to use iceland.obj for some mountains
     /*
     std::cout << "\nAttempting to load terrain models..." << std::endl;
+    std::string terrainPath = findAssetPath("assets/iceland.obj");
     int terrainLoadCount = 0;
     for (auto* obs : obstacles) {
         if (obs != nullptr && obs->getType() == ObstacleType::MOUNTAIN) {
             // Only load for first few mountains as example
             if (terrainLoadCount < 3) {
-                bool success = obs->loadModel("assets/iceland.obj", 5.0f);
+                bool success = obs->loadModel(terrainPath, 5.0f);
                 if (success) terrainLoadCount++;
             }
         }
