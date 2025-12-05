@@ -22,11 +22,15 @@
 // Helper function to find asset path (checks multiple locations)
 static std::string findAssetPath(const std::string& relativePath) {
     // List of possible base paths to check
+    // Executable runs from out/build/x64-Debug/bin/, assets are in source root
     const char* basePaths[] = {
-        "",           // Current directory
-        "../",        // Parent directory (when running from bin/)
-        "../../",     // Two levels up
-        "../../../",  // Three levels up
+        "",                     // Current directory
+        "../",                  // Parent directory
+        "../../",               // Two levels up
+        "../../../",            // Three levels up
+        "../../../../",         // Four levels up (out/build/x64-Debug/bin -> source root)
+        "../../../../../",      // Five levels up
+        "../../../../AerialAces-FlightSim/",  // Explicit project name
         nullptr
     };
     
@@ -191,8 +195,8 @@ void Level1::loadModels() {
     // Load aircraft model for player
     if (player != nullptr) {
         std::cout << "\nAttempting to load aircraft model..." << std::endl;
-        std::string planePath = findAssetPath("assets/plane 1.obj");
-        bool success = player->loadModel(planePath, 0.5f);
+        std::string planePath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.obj");
+        bool success = player->loadModel(planePath, 0.05f);  // Reduced scale
         if (!success) {
             std::cout << "Aircraft model failed to load, using primitive fallback" << std::endl;
         }
@@ -200,36 +204,30 @@ void Level1::loadModels() {
     
     // Load ring model and texture for all collectibles
     std::cout << "\nAttempting to load ring models..." << std::endl;
-    std::string ringModelPath = findAssetPath("assets/Engagement Ring.obj");
-    std::string ringTexturePath = findAssetPath("assets/Engagement Ring.jpg");
+    std::string ringModelPath = findAssetPath("assets/rings/Engagement Ring.obj");
+    std::string ringTexturePath = findAssetPath("assets/rings/Engagement Ring.jpg");
     
     int ringLoadCount = 0;
     for (auto* ring : rings) {
         if (ring != nullptr) {
-            bool success = ring->loadModel(ringModelPath, ringTexturePath, 1.0f);
+            bool success = ring->loadModel(ringModelPath, ringTexturePath, 0.1f);  // Reduced scale
             if (success) ringLoadCount++;
         }
     }
     std::cout << "Loaded " << ringLoadCount << "/" << rings.size() << " ring models successfully" << std::endl;
     
-    // Load terrain model for mountains (optional - only for specific obstacles)
-    // For now, we'll keep mountains as primitives for variety
-    // Uncomment below if you want to use iceland.obj for some mountains
-    /*
-    std::cout << "\nAttempting to load terrain models..." << std::endl;
-    std::string terrainPath = findAssetPath("assets/iceland.obj");
-    int terrainLoadCount = 0;
+    // Load Iceland terrain model for the landscape (mountainous terrain)
+    std::cout << "\nAttempting to load terrain model..." << std::endl;
+    std::string terrainPath = findAssetPath("assets/landscape/iceland.obj");
     for (auto* obs : obstacles) {
-        if (obs != nullptr && obs->getType() == ObstacleType::MOUNTAIN) {
-            // Only load for first few mountains as example
-            if (terrainLoadCount < 3) {
-                bool success = obs->loadModel(terrainPath, 5.0f);
-                if (success) terrainLoadCount++;
+        if (obs != nullptr && obs->isGround()) {
+            bool success = obs->loadModel(terrainPath, 1.0f);
+            if (success) {
+                std::cout << "Iceland terrain model loaded successfully!" << std::endl;
             }
+            break;  // Only load for ground obstacle
         }
     }
-    std::cout << "Loaded " << terrainLoadCount << " terrain models successfully" << std::endl;
-    */
     
     std::cout << "=== Model Loading Complete ===\n" << std::endl;
 }
@@ -645,7 +643,7 @@ void Level1::renderMessages() {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);
+        glColor3f(1.0f, 1.0f, 1.0f);  // Fixed: added third argument
         sprintf(buffer, "All rings collected!");
         glRasterPos2f(530, 360);
         for (char* c = buffer; *c != '\0'; c++) {
@@ -672,7 +670,7 @@ void Level1::renderMessages() {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);
+        glColor3f(1.0f, 1.0f, 1.0f);  // Fixed: added third argument
         if (timer.isExpired()) {
             sprintf(buffer, "Time ran out!");
         } else {

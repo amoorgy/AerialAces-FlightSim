@@ -220,6 +220,10 @@ void Player::render() const {
         GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
         if (!lightingEnabled) glEnable(GL_LIGHTING);
         
+        // Correct model orientation - rotate to point forward (nose along +Z axis)
+        glRotatef(90.0f, 0.0f, 1.0f, 0.0f);   // Rotate around Y to face forward
+        glRotatef(180.0f, 1.0f, 0.0f, 0.0f);  // Flip upright if model is inverted
+        
         // Render the 3D model
         aircraftModel->render();
         
