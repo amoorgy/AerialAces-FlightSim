@@ -32,9 +32,11 @@ public:
     GLuint getID() const { return textureID; }
 
 private:
+    void createGLTexture(); // Helper to create GL texture from imageData
     bool loaded;
     GLuint textureID;
     int width, height, channels;
+    unsigned char* imageData; // Store image data until GL texture is created
 };
 
 #endif // TEXTURE_H

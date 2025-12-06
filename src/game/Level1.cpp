@@ -29,7 +29,7 @@ static std::string findAssetPath(const std::string& relativePath) {
         "../",                  // Parent directory
         "../../",               // Two levels up
         "../../../",            // Three levels up
-        "//////////////////////////////////////////////////////////////////////",         // Four levels up (out/build/x64-Debug/bin -> source root)
+        "../../../../",         // Four levels up (out/build/x64-Debug/bin -> source root)
         "../../../../../",      // Five levels up
         nullptr
     };
@@ -56,8 +56,8 @@ Level1::Level1()
       score(0),
       ringsCollected(0),
       totalRings(8),
-      startTime(90.0f),
-      bonusTimePerRing(10.0f),
+      startTime(180.0f),     // Much more time for very slow speeds
+      bonusTimePerRing(20.0f),  // More bonus time per ring
       explosionActive(false),
       explosionTime(0),
       explosionX(0), explosionY(0), explosionZ(0),
@@ -65,7 +65,7 @@ Level1::Level1()
       startYaw(189.0f),  // Starting yaw rotation
       levelWidth(500),
       levelLength(500),
-      spawnProtectionTime(2.0f) {  // 2 seconds of spawn protection
+      spawnProtectionTime(3.5f) {  // Longer spawn protection for smoother start
 }
 
 Level1::~Level1() {
@@ -77,11 +77,11 @@ void Level1::init() {
     player = new Player(startX, startY, startZ);
     player->reset(startX, startY, startZ, startYaw);  // Set initial yaw
     
-    // Create camera - positioned behind the plane, level with it and zoomed in
+    // Create camera - positioned behind the plane with improved tracking
     camera = new Camera();
     camera->setFirstPerson(false);
-    camera->setDistance(8.0f);   // Closer to plane (was 10)
-    camera->setHeight(1.5f);     // More level with plane (was 3)
+    camera->setDistance(20.0f);  // Further back for larger plane visibility
+    camera->setHeight(7.0f);     // Higher for better overview
     
     // Create lighting
     lighting = new Lighting();
@@ -89,10 +89,19 @@ void Level1::init() {
     lighting->setNightMode(false);
     
     // Load 3D models first
+    std::cout << "DEBUG: About to call loadModels()..." << std::endl;
     loadModels();
+    std::cout << "DEBUG: loadModels() completed successfully!" << std::endl;
+    
+    // Create lighthouses with rotating beams
+    std::cout << "DEBUG: About to call createLighthouses()..." << std::endl;
+    createLighthouses();
+    std::cout << "DEBUG: createLighthouses() completed successfully!" << std::endl;
     
     // Create rings positioned between plane and terrain
+    std::cout << "DEBUG: About to call createRings()..." << std::endl;
     createRings();
+    std::cout << "DEBUG: createRings() completed successfully!" << std::endl;
     
     // Start timer
     timer.start(startTime);
@@ -103,9 +112,19 @@ void Level1::init() {
     state = Level1State::PLAYING;
     
     std::cout << "\n========================================" << std::endl;
-    std::cout << "Level 1 initialized - Mountain Valley Challenge" << std::endl;
-    std::cout << "Fly through the valley and collect " << totalRings << " rings!" << std::endl;
-    std::cout << "Avoid crashing into the mountains!" << std::endl;
+    std::cout << "Level 1 - Mountain Valley Challenge" << std::endl;
+    std::cout << "========================================" << std::endl;
+    std::cout << "OBJECTIVE: Collect " << totalRings << " rings and avoid terrain!" << std::endl;
+    std::cout << "WIN: Collect final ring + at least 4 total rings" << std::endl;
+    std::cout << "\nIMPROVED CONTROLS:" << std::endl;
+    std::cout << "  - Very slow starting speed (0.3) for excellent control" << std::endl;
+    std::cout << "  - Press '2' to accelerate up to max speed (1.2)" << std::endl;
+    std::cout << "  - Press '1' to slow down to min speed (0.15)" << std::endl;
+    std::cout << "  - Plane is 50% larger for better visibility" << std::endl;
+    std::cout << "  - More responsive pitch/yaw/roll controls" << std::endl;
+    std::cout << "  - 3.5 seconds spawn protection (invincibility)" << std::endl;
+    std::cout << "\nTIME: " << startTime << " seconds (+" << bonusTimePerRing << "s per ring)" << std::endl;
+    std::cout << "LIGHTHOUSES: Located at (-50,0,250) and (60,0,50)" << std::endl;
     std::cout << "========================================\n" << std::endl;
 }
 
@@ -175,24 +194,32 @@ void Level1::loadModels() {
     if (player != nullptr) {
         std::cout << "\nLoading aircraft model..." << std::endl;
         std::string planePath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.obj");
+        std::cout << "DEBUG: About to call player->loadModel()..." << std::endl;
         bool success = player->loadModel(planePath, 0.25f);
+        std::cout << "DEBUG: player->loadModel() returned: " << success << std::endl;
         if (!success) {
             std::cout << "Aircraft model not found, using primitive aircraft" << std::endl;
         }
+        std::cout << "DEBUG: Aircraft model loading complete!" << std::endl;
     }
     
     // Load landscape model - position it as a ground plane below the player
     std::cout << "\nLoading landscape model..." << std::endl;
+    std::cout << "DEBUG: About to call findAssetPath for iceland.obj..." << std::endl;
     std::string terrainPath = findAssetPath("assets/landscape/iceland.obj");
+    std::cout << "DEBUG: terrainPath = " << terrainPath << std::endl;
     
     // Position terrain as ground plane:
     // - Center at x=0, z=200 (ahead of player starting position)
     // - Y at 0 (ground level) - aircraft flies at y=80, ground at y=0
     // - This gives proper vertical separation between sky and ground
+    std::cout << "DEBUG: Creating Obstacle object..." << std::endl;
     Obstacle* landscape = new Obstacle(0, 0, 200, levelWidth, 1, levelLength, ObstacleType::GROUND);
+    std::cout << "DEBUG: Obstacle created, about to load model..." << std::endl;
     
     // Scale terrain large enough to cover the play area
     bool terrainLoaded = landscape->loadModel(terrainPath, 15.0f);
+    std::cout << "DEBUG: loadModel returned, terrainLoaded = " << terrainLoaded << std::endl;
     
     if (terrainLoaded) {
         std::cout << "Landscape model loaded successfully!" << std::endl;
@@ -201,7 +228,9 @@ void Level1::loadModels() {
         std::cout << "Landscape model not found, using flat ground" << std::endl;
     }
     
+    std::cout << "DEBUG: Adding landscape to obstacles..." << std::endl;
     obstacles.push_back(landscape);
+    std::cout << "DEBUG: Landscape added to obstacles!" << std::endl;
     
     std::cout << "=== Model Loading Complete ===\n" << std::endl;
 }
@@ -232,6 +261,9 @@ void Level1::update(float deltaTime, const bool* keys) {
     
     // Update lighting
     lighting->update(deltaTime);
+    
+    // Update lighthouses
+    updateLighthouses(deltaTime);
     
     // Update timer
     timer.update(deltaTime);
@@ -310,8 +342,8 @@ void Level1::checkCollisions() {
             float dz = pz - ring->getZ();
             float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
             
-            // Smaller hitbox - must fly closer to collect
-            float collectRadius = pr + ring->getRadius() + 3.0f;
+            // Generous hitbox for more satisfying collection at slower speeds
+            float collectRadius = pr + ring->getRadius() + 4.5f;
             
             if (dist < collectRadius) {
                 ring->collect();
@@ -331,8 +363,8 @@ void Level1::checkCollisions() {
     }
     
     // ========== TERRAIN CRASH DETECTION (BVH-based with swept collision) ==========
-    // Use a larger collision radius for more reliable detection
-    float collisionRadius = pr * 1.5f;  // 50% larger radius for safety margin
+    // Use a slightly larger collision radius for reliable but not overly harsh detection
+    float collisionRadius = pr * 1.3f;  // 30% larger radius for safety margin
     
     // Calculate player velocity for swept collision
     float radYaw = player->getYaw() * M_PI / 180.0f;
@@ -513,13 +545,20 @@ void Level1::render() {
     // Update lens flare based on camera looking at sun
     updateLensFlare();
     
-    // Render sky
+    // Render sky (no lighting)
+    glDisable(GL_LIGHTING);
     renderSky();
+    
+    // ==== GROUP ALL LIT GEOMETRY TOGETHER FOR PERFORMANCE ====
+    glEnable(GL_LIGHTING);
     
     // Render landscape/terrain
     for (auto* obstacle : obstacles) {
         obstacle->render();
     }
+    
+    // Render lighthouses with their rotating beams
+    renderLighthouses();
     
     // Render rings
     for (auto* ring : rings) {
@@ -531,7 +570,10 @@ void Level1::render() {
         player->render();
     }
     
-    // Render explosion if active
+    // ==== END LIT GEOMETRY ====
+    glDisable(GL_LIGHTING);
+    
+    // Render explosion if active (unlit)
     if (explosionActive) {
         renderExplosion();
     }
@@ -727,9 +769,10 @@ void Level1::renderHUD() {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
     }
     
-    // Speed indicator
+    // Speed indicator (show actual speed value and percentage of max)
     glColor3f(1.0f, 1.0f, 1.0f);
-    sprintf(buffer, "Speed: %.0f%%", (player->getSpeed() / player->getSpeed()) * 100.0f);
+    float speedPercent = (player->getSpeed() / 1.2f) * 100.0f;  // maxSpeed is 1.2
+    sprintf(buffer, "Speed: %.2f (%.0f%%)", player->getSpeed(), speedPercent);
     glRasterPos2f(1040, 658);
     for (char* c = buffer; *c != '\0'; c++) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
@@ -761,10 +804,20 @@ void Level1::renderHUD() {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
     }
     
+    // Spawn protection indicator
+    if (spawnProtectionTime > 0) {
+        glColor3f(0.2f, 1.0f, 0.2f);
+        sprintf(buffer, "SPAWN PROTECTION: %.1fs", spawnProtectionTime);
+        glRasterPos2f(540, 680);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+    }
+    
     // Controls hint at bottom
     glColor3f(0.7f, 0.7f, 0.7f);
-    sprintf(buffer, "W/S: Pitch | A/D: Roll | Q/E: Yaw | 1/2: Speed | C: Camera | N: Day/Night | G: Debug Pos | R: Restart");
-    glRasterPos2f(300, 20);
+    sprintf(buffer, "W/S: Pitch | A/D: Roll | Q/E: Yaw | 1/2: Speed | Space: Barrel Roll | C: Camera | N: Day/Night");
+    glRasterPos2f(320, 20);
     for (char* c = buffer; *c != '\0'; c++) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
     }
@@ -1073,6 +1126,148 @@ bool Level1::isLost() const {
     return state == Level1State::LOST;
 }
 
+void Level1::createLighthouses() {
+    std::cout << "\n=== Creating Lighthouses ===" << std::endl;
+    
+    std::string lighthousePath = findAssetPath("assets/lighthouse/obj/obj/lighthouse.obj");
+    
+    // Create 2 lighthouses at strategic positions along the flight path
+    // Lighthouse 1: Near starting area on cliff edge - LARGER AND MORE VISIBLE
+    Obstacle* lighthouse1 = new Obstacle(-50.0f, 0.0f, 250.0f, 15, 45, 15, ObstacleType::BUILDING);
+    if (lighthouse1->loadModel(lighthousePath, 3.5f)) {  // Bigger scale
+        lighthouses.push_back(lighthouse1);
+        std::cout << "Lighthouse 1 created at (-50, 0, 250) - SCALE 3.5x" << std::endl;
+    } else {
+        delete lighthouse1;
+        std::cout << "Lighthouse 1 model not found, using larger primitive cylinder" << std::endl;
+        lighthouse1 = new Obstacle(-50.0f, 0.0f, 250.0f, 15, 45, 15, ObstacleType::BUILDING);
+        lighthouses.push_back(lighthouse1);
+    }
+    
+    // Lighthouse 2: Near middle of flight path on opposite side - LARGER AND MORE VISIBLE
+    Obstacle* lighthouse2 = new Obstacle(60.0f, 0.0f, 50.0f, 15, 45, 15, ObstacleType::BUILDING);
+    if (lighthouse2->loadModel(lighthousePath, 3.5f)) {  // Bigger scale
+        lighthouses.push_back(lighthouse2);
+        std::cout << "Lighthouse 2 created at (60, 0, 50) - SCALE 3.5x" << std::endl;
+    } else {
+        delete lighthouse2;
+        std::cout << "Lighthouse 2 model not found, using larger primitive cylinder" << std::endl;
+        lighthouse2 = new Obstacle(60.0f, 0.0f, 50.0f, 15, 45, 15, ObstacleType::BUILDING);
+        lighthouses.push_back(lighthouse2);
+    }
+    
+    std::cout << "=== Lighthouses Created: " << lighthouses.size() << " ===\n" << std::endl;
+}
+
+void Level1::updateLighthouses(float deltaTime) {
+    // Update lighthouse beam rotation in lighting system
+    lighting->updateLighthouseBeam(deltaTime);
+}
+
+void Level1::renderLighthouses() {
+    glEnable(GL_LIGHTING);
+    
+    // Enable lighthouse lights GL_LIGHT2 and GL_LIGHT3
+    glEnable(GL_LIGHT2);
+    glEnable(GL_LIGHT3);
+    
+    float angle1 = lighting->getLighthouseAngle();
+    float angle2 = angle1 + 180.0f;  // Second lighthouse 180° out of phase
+    
+    // Lighthouse 1 at (-50, 0, 250)
+    float lh1X = -50.0f;
+    float lh1Y = 0.0f;
+    float lh1Z = 250.0f;
+    
+    // Lighthouse 2 at (60, 0, 50)
+    float lh2X = 60.0f;
+    float lh2Y = 0.0f;
+    float lh2Z = 50.0f;
+    
+    // Configure GL_LIGHT2 for lighthouse 1 beam - BRIGHTER AND MORE VISIBLE
+    float rad1 = angle1 * M_PI / 180.0f;
+    GLfloat lh1Pos[] = {lh1X, lh1Y + 42.0f, lh1Z, 1.0f};  // Higher position for taller lighthouse
+    GLfloat lh1Dir[] = {std::sin(rad1), -0.3f, std::cos(rad1)};  // Beam direction
+    GLfloat lh1Diffuse[] = {1.5f, 1.4f, 1.2f, 1.0f};  // Brighter warm white light
+    GLfloat lh1Specular[] = {1.5f, 1.5f, 1.3f, 1.0f};
+    
+    glLightfv(GL_LIGHT2, GL_POSITION, lh1Pos);
+    glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, lh1Dir);
+    glLightfv(GL_LIGHT2, GL_DIFFUSE, lh1Diffuse);
+    glLightfv(GL_LIGHT2, GL_SPECULAR, lh1Specular);
+    glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0f);  // Wider beam for better visibility
+    glLightf(GL_LIGHT2, GL_SPOT_EXPONENT, 12.0f);  // Less focused for wider spread
+    glLightf(GL_LIGHT2, GL_CONSTANT_ATTENUATION, 0.8f);
+    glLightf(GL_LIGHT2, GL_LINEAR_ATTENUATION, 0.003f);
+    glLightf(GL_LIGHT2, GL_QUADRATIC_ATTENUATION, 0.00005f);
+    
+    // Configure GL_LIGHT3 for lighthouse 2 beam - BRIGHTER AND MORE VISIBLE
+    float rad2 = angle2 * M_PI / 180.0f;
+    GLfloat lh2Pos[] = {lh2X, lh2Y + 42.0f, lh2Z, 1.0f};  // Higher position
+    GLfloat lh2Dir[] = {std::sin(rad2), -0.3f, std::cos(rad2)};
+    GLfloat lh2Diffuse[] = {1.3f, 1.5f, 1.4f, 1.0f};  // Brighter cool white
+    GLfloat lh2Specular[] = {1.3f, 1.5f, 1.5f, 1.0f};
+    
+    glLightfv(GL_LIGHT3, GL_POSITION, lh2Pos);
+    glLightfv(GL_LIGHT3, GL_SPOT_DIRECTION, lh2Dir);
+    glLightfv(GL_LIGHT3, GL_DIFFUSE, lh2Diffuse);
+    glLightfv(GL_LIGHT3, GL_SPECULAR, lh2Specular);
+    glLightf(GL_LIGHT3, GL_SPOT_CUTOFF, 30.0f);  // Wider beam
+    glLightf(GL_LIGHT3, GL_SPOT_EXPONENT, 12.0f);  // Less focused
+    glLightf(GL_LIGHT3, GL_CONSTANT_ATTENUATION, 0.8f);
+    glLightf(GL_LIGHT3, GL_LINEAR_ATTENUATION, 0.003f);
+    glLightf(GL_LIGHT3, GL_QUADRATIC_ATTENUATION, 0.00005f);
+    
+    // Render lighthouse structures
+    for (auto* lighthouse : lighthouses) {
+        lighthouse->render();
+    }
+    
+    // Render visible light beams (volumetric effect)
+    glDisable(GL_LIGHTING);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    glDepthMask(GL_FALSE);
+    
+    // Lighthouse 1 beam visual - LARGER AND BRIGHTER
+    glPushMatrix();
+    glTranslatef(lh1X, lh1Y + 42.0f, lh1Z);  // Higher position
+    glRotatef(angle1, 0.0f, 1.0f, 0.0f);
+    glRotatef(-17.0f, 1.0f, 0.0f, 0.0f);  // Point downward
+    
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4f(1.0f, 0.95f, 0.8f, 0.8f);  // Brighter at source
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    glColor4f(1.0f, 0.95f, 0.8f, 0.0f);  // Fade at edges
+    for (int i = 0; i <= 20; i++) {  // More segments for smoother beam
+        float a = (float)i / 20 * 2.0f * M_PI;
+        glVertex3f(std::sin(a) * 70.0f, 0.0f, std::cos(a) * 70.0f + 200.0f);  // Larger beam
+    }
+    glEnd();
+    glPopMatrix();
+    
+    // Lighthouse 2 beam visual - LARGER AND BRIGHTER
+    glPushMatrix();
+    glTranslatef(lh2X, lh2Y + 42.0f, lh2Z);  // Higher position
+    glRotatef(angle2, 0.0f, 1.0f, 0.0f);
+    glRotatef(-17.0f, 1.0f, 0.0f, 0.0f);
+    
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4f(0.9f, 1.0f, 0.95f, 0.8f);  // Brighter at source
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    glColor4f(0.9f, 1.0f, 0.95f, 0.0f);
+    for (int i = 0; i <= 20; i++) {  // More segments
+        float a = (float)i / 20 * 2.0f * M_PI;
+        glVertex3f(std::sin(a) * 70.0f, 0.0f, std::cos(a) * 70.0f + 200.0f);  // Larger beam
+    }
+    glEnd();
+    glPopMatrix();
+    
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glEnable(GL_LIGHTING);
+}
+
 void Level1::cleanup() {
     delete player;
     player = nullptr;
@@ -1092,6 +1287,11 @@ void Level1::cleanup() {
         delete obstacle;
     }
     obstacles.clear();
+    
+    for (auto* lighthouse : lighthouses) {
+        delete lighthouse;
+    }
+    lighthouses.clear();
 }
 
 void Level1::restart() {

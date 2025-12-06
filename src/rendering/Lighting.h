@@ -98,6 +98,12 @@ public:
     float getLighthouseAngle() const;
     
     /**
+     * Update lighthouse beam rotation
+     * @param deltaTime Time since last frame
+     */
+    void updateLighthouseBeam(float deltaTime);
+    
+    /**
      * Get sun world position
      */
     float getSunX() const { return sunX; }

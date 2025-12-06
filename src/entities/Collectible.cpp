@@ -109,9 +109,10 @@ void Collectible::update(float deltaTime) {
     if (collected) return;
     
     animTime += deltaTime;
-    pulseScale = 1.0f + 0.1f * std::sin(animTime * 3.0f);
-    glowIntensity = 0.85f + 0.15f * std::sin(animTime * 2.5f + 0.5f);
-    rotationAngle += 30.0f * deltaTime;
+    // Enhanced pulsing effect for better visibility
+    pulseScale = 1.0f + 0.15f * std::sin(animTime * 3.0f);
+    glowIntensity = 0.8f + 0.2f * std::sin(animTime * 2.5f + 0.5f);
+    rotationAngle += 40.0f * deltaTime;  // Slightly faster rotation
     if (rotationAngle >= 360.0f) {
         rotationAngle -= 360.0f;
     }

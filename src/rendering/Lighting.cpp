@@ -201,6 +201,14 @@ float Lighting::getLighthouseAngle() const {
     return lighthouseAngle;
 }
 
+void Lighting::updateLighthouseBeam(float deltaTime) {
+    // Rotate lighthouse beam continuously
+    lighthouseAngle += lighthouseSpeed * deltaTime;
+    while (lighthouseAngle >= 360.0f) {
+        lighthouseAngle -= 360.0f;
+    }
+}
+
 float Lighting::calculateFlareIntensity(float camX, float camY, float camZ,
                                          float lookX, float lookY, float lookZ) const {
     // Sunset always has some sun to create flares

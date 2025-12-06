@@ -20,13 +20,13 @@ Player::Player()
     : x(0), y(80), z(0),  // Start high up
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
-      speed(1.5f),           // Faster default speed
-      maxSpeed(4.0f),        // Higher max speed
-      minSpeed(0.5f),        // Minimum speed
-      acceleration(0.7f),    // Good acceleration
-      pitchSpeed(60.0f),
-      yawSpeed(80.0f),       // Faster yaw for easier turning
-      rollSpeed(120.0f),     // Faster roll for easier turning
+      speed(0.3f),           // Very slow starting speed for better control
+      maxSpeed(1.2f),        // Much slower maximum speed
+      minSpeed(0.15f),       // Very slow minimum speed
+      acceleration(0.4f),    // Smooth throttle response
+      pitchSpeed(55.0f),     // Smooth pitch control
+      yawSpeed(65.0f),       // Smooth yaw control
+      rollSpeed(95.0f),      // Smooth roll control
       gravity(9.8f),
       lift(0),
       boundingRadius(3.0f),
@@ -42,13 +42,13 @@ Player::Player(float startX, float startY, float startZ)
     : x(startX), y(startY), z(startZ),
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
-      speed(1.5f),           // Faster default speed
-      maxSpeed(4.0f),        // Higher max speed
-      minSpeed(0.5f),        // Minimum speed
-      acceleration(0.7f),    // Good acceleration
-      pitchSpeed(60.0f),
-      yawSpeed(80.0f),       // Faster yaw for easier turning
-      rollSpeed(120.0f),     // Faster roll for easier turning
+      speed(0.5f),           // Very slow starting speed for better control
+      maxSpeed(1.2f),        // Much slower maximum speed
+      minSpeed(0.15f),       // Very slow minimum speed
+      acceleration(0.4f),    // Smooth throttle response
+      pitchSpeed(55.0f),     // Smooth pitch control
+      yawSpeed(65.0f),       // Smooth yaw control
+      rollSpeed(95.0f),      // Smooth roll control
       gravity(9.8f),
       lift(0),
       boundingRadius(3.0f),
@@ -156,13 +156,13 @@ void Player::update(float deltaTime, const bool* keys) {
         pitch *= (1.0f - deltaTime * 1.5f);
     }
     
-    // Clamp pitch to prevent extreme angles
-    if (pitch > 45.0f) pitch = 45.0f;
-    if (pitch < -45.0f) pitch = -45.0f;
+    // Clamp pitch to prevent extreme angles (increased for more dynamic flight)
+    if (pitch > 60.0f) pitch = 60.0f;
+    if (pitch < -60.0f) pitch = -60.0f;
     
-    // Clamp roll
-    if (roll > 60.0f) roll = 60.0f;
-    if (roll < -60.0f) roll = -60.0f;
+    // Clamp roll (increased for more dramatic banking)
+    if (roll > 75.0f) roll = 75.0f;
+    if (roll < -75.0f) roll = -75.0f;
     
     // Keep yaw in 0-360 range
     while (yaw >= 360.0f) yaw -= 360.0f;
@@ -251,7 +251,10 @@ void Player::render() const {
         
         if (!lightingEnabled) glDisable(GL_LIGHTING);
     } else {
-        // Fallback: Draw aircraft using primitives
+        // Fallback: Draw aircraft using primitives - SCALED UP for better visibility
+        glPushMatrix();
+        glScalef(1.5f, 1.5f, 1.5f);  // Scale entire plane up by 50%
+        
         // Fuselage (main body)
         glColor3f(0.2f, 0.3f, 0.8f);  // Navy blue
         glPushMatrix();
@@ -307,6 +310,8 @@ void Player::render() const {
         glTranslatef(-6.0f, 0.0f, 0.0f);
         glutSolidSphere(0.3, 6, 6);
         glPopMatrix();
+        
+        glPopMatrix();  // End plane scale
     }
     
     glPopMatrix();
@@ -320,7 +325,7 @@ void Player::reset(float startX, float startY, float startZ, float startYaw) {
     yaw = startYaw;
     roll = 0;
     velocityX = velocityY = velocityZ = 0;
-    speed = 1.5f;  // Match default speed
+    speed = 0.3f;  // Match new default speed
     alive = true;
     barrelRolling = false;
     barrelRollAngle = 0;

@@ -71,6 +71,12 @@ private:
     // Spawn protection
     float spawnProtectionTime;  // Seconds of invincibility after spawn
     
+    // Lighthouses with rotating beams
+    std::vector<Obstacle*> lighthouses;
+    void createLighthouses();
+    void renderLighthouses();
+    void updateLighthouses(float deltaTime);
+    
     // Color-based collision
     bool checkColorCollision();  // Check terrain collision using color sampling
     

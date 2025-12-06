@@ -141,7 +141,15 @@ private:
     BVHNode* bvhRoot;
     std::vector<Triangle> allTriangles;
     
+    // VBO support for optimized rendering
+    GLuint vboVertices;
+    GLuint vboNormals;
+    GLuint vboTexCoords;
+    bool vboInitialized;
+    
     void calculateBounds();
+    void initVBOs();
+    void cleanupVBOs();
     BVHNode* buildBVH(std::vector<Triangle>& tris, int depth = 0);
     AABB computeBounds(const std::vector<Triangle>& tris) const;
     bool checkBVHCollision(BVHNode* node, float sx, float sy, float sz, float radius) const;

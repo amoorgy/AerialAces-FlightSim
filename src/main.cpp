@@ -171,6 +171,17 @@ int main(int argc, char** argv) {
     glutInitWindowPosition(100, 50);
     glutCreateWindow(WINDOW_TITLE);
     
+    #ifndef __APPLE__
+    // Initialize GLEW (must be done after creating window)
+    GLenum glewStatus = glewInit();
+    if (glewStatus != GLEW_OK) {
+        std::cerr << "GLEW initialization failed: " << glewGetErrorString(glewStatus) << std::endl;
+        return 1;
+    }
+    std::cout << "GLEW initialized successfully" << std::endl;
+    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
+    #endif
+    
     // Create game instance
     game = new Game();
     

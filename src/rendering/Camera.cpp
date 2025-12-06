@@ -22,9 +22,9 @@ Camera::Camera()
       lookX(0), lookY(10), lookZ(0),
       upX(0), upY(1), upZ(0),
       firstPerson(false),
-      distance(18.0f),
-      height(6.0f),
-      smoothing(0.1f),
+      distance(20.0f),      // Further back to see larger plane better
+      height(7.0f),         // Higher for better overview
+      smoothing(0.2f),      // More responsive tracking
       targetPosX(0), targetPosY(10), targetPosZ(-20),
       orbitYaw(0.0f),
       orbitPitch(0.0f),

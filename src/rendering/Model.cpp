@@ -5,7 +5,8 @@
 #include <cmath>
 #include <algorithm>
 
-Model::Model() : loaded(false), scaleFactor(1.0f), bvhRoot(nullptr) {
+Model::Model() : loaded(false), scaleFactor(1.0f), bvhRoot(nullptr),
+                 vboVertices(0), vboNormals(0), vboTexCoords(0), vboInitialized(false) {
     for (int i = 0; i < 3; i++) {
         minBounds[i] = 0.0f;
         maxBounds[i] = 0.0f;
@@ -13,6 +14,7 @@ Model::Model() : loaded(false), scaleFactor(1.0f), bvhRoot(nullptr) {
 }
 
 Model::~Model() {
+    cleanupVBOs();
     vertices.clear();
     normals.clear();
     texcoords.clear();
@@ -111,6 +113,8 @@ bool Model::load(const std::string& filepath) {
     
     calculateBounds();
     loaded = true;
+    // NOTE: VBOs will be initialized lazily on first render when OpenGL context is ready
+    // initVBOs();  // Can't call this here - OpenGL context not ready yet!
     
     std::cout << "Model loaded successfully!" << std::endl;
     std::cout << "  Final vertices: " << vertices.size() / 3 << std::endl;
@@ -296,17 +300,50 @@ void Model::render() const {
     glPushMatrix();
     glScalef(scaleFactor, scaleFactor, scaleFactor);
     
-    glBegin(GL_TRIANGLES);
-    for (size_t i = 0; i < vertices.size() / 3; i++) {
-        if (i * 3 + 2 < normals.size()) {
-            glNormal3f(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]);
-        }
-        if (i * 2 + 1 < texcoords.size()) {
-            glTexCoord2f(texcoords[i * 2], texcoords[i * 2 + 1]);
-        }
-        glVertex3f(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+    // Initialize VBOs on first render if not already done
+    if (!vboInitialized) {
+        const_cast<Model*>(this)->initVBOs();
     }
-    glEnd();
+    
+    if (vboInitialized && vboVertices != 0) {
+        // Modern VBO rendering - 3-5x faster than immediate mode
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        
+        glBindBuffer(GL_ARRAY_BUFFER, vboVertices);
+        glVertexPointer(3, GL_FLOAT, 0, 0);
+        
+        glBindBuffer(GL_ARRAY_BUFFER, vboNormals);
+        glNormalPointer(GL_FLOAT, 0, 0);
+        
+        if (vboTexCoords != 0 && !texcoords.empty()) {
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glBindBuffer(GL_ARRAY_BUFFER, vboTexCoords);
+            glTexCoordPointer(2, GL_FLOAT, 0, 0);
+        }
+        
+        glDrawArrays(GL_TRIANGLES, 0, vertices.size() / 3);
+        
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glDisableClientState(GL_NORMAL_ARRAY);
+        if (vboTexCoords != 0) {
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        }
+    } else {
+        // Fallback: immediate mode (slower)
+        glBegin(GL_TRIANGLES);
+        for (size_t i = 0; i < vertices.size() / 3; i++) {
+            if (i * 3 + 2 < normals.size()) {
+                glNormal3f(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2]);
+            }
+            if (i * 2 + 1 < texcoords.size()) {
+                glTexCoord2f(texcoords[i * 2], texcoords[i * 2 + 1]);
+            }
+            glVertex3f(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
+        }
+        glEnd();
+    }
     
     glPopMatrix();
 }
@@ -337,6 +374,46 @@ void Model::getBounds(float& minX, float& maxX, float& minY, float& maxY, float&
 
 void Model::setScale(float scale) {
     scaleFactor = scale;
+}
+
+void Model::initVBOs() {
+    if (vboInitialized || vertices.empty()) return;
+    
+    glGenBuffers(1, &vboVertices);
+    glBindBuffer(GL_ARRAY_BUFFER, vboVertices);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    
+    if (!normals.empty()) {
+        glGenBuffers(1, &vboNormals);
+        glBindBuffer(GL_ARRAY_BUFFER, vboNormals);
+        glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(float), normals.data(), GL_STATIC_DRAW);
+    }
+    
+    if (!texcoords.empty()) {
+        glGenBuffers(1, &vboTexCoords);
+        glBindBuffer(GL_ARRAY_BUFFER, vboTexCoords);
+        glBufferData(GL_ARRAY_BUFFER, texcoords.size() * sizeof(float), texcoords.data(), GL_STATIC_DRAW);
+    }
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    vboInitialized = true;
+    std::cout << "VBOs initialized for model (vertices: " << vertices.size()/3 << ")" << std::endl;
+}
+
+void Model::cleanupVBOs() {
+    if (vboVertices != 0) {
+        glDeleteBuffers(1, &vboVertices);
+        vboVertices = 0;
+    }
+    if (vboNormals != 0) {
+        glDeleteBuffers(1, &vboNormals);
+        vboNormals = 0;
+    }
+    if (vboTexCoords != 0) {
+        glDeleteBuffers(1, &vboTexCoords);
+        vboTexCoords = 0;
+    }
+    vboInitialized = false;
 }
 
 bool Model::getHeightAtPosition(float worldX, float worldZ, float modelX, float modelZ, float& outHeight) const {
