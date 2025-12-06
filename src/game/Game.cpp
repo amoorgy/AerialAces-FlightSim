@@ -66,8 +66,8 @@ void Game::init() {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     
-    // Load Level 1
-    loadLevel(1);
+    // Load Level 2 for testing
+    loadLevel(2);
     state = GameState::PLAYING;
 }
 
@@ -211,12 +211,22 @@ void Game::handleKeyPress(unsigned char key, bool pressed) {
     // Handle camera toggle on key press
     if (pressed && (key == 'c' || key == 'C')) {
         if (currentLevel) {
+            // Try Level1 first
             Level1* level1 = dynamic_cast<Level1*>(currentLevel);
             if (level1 && level1->getCamera()) {
                 level1->getCamera()->toggle();
                 std::cout << "Camera: " 
                           << (level1->getCamera()->isFirstPerson() ? "First Person" : "Third Person") 
                           << std::endl;
+            } else {
+                // Try Level2
+                Level2* level2 = dynamic_cast<Level2*>(currentLevel);
+                if (level2 && level2->getCamera()) {
+                    level2->getCamera()->toggle();
+                    std::cout << "Camera: " 
+                              << (level2->getCamera()->isFirstPerson() ? "First Person" : "Third Person") 
+                              << std::endl;
+                }
             }
         }
     }

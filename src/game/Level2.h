@@ -176,6 +176,9 @@ public:
     
     // Day/night toggle
     void toggleDayNight();
+    
+    // Camera access
+    Camera* getCamera() const { return camera; }
 };
 
 #endif // LEVEL2_H

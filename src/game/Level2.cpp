@@ -129,7 +129,7 @@ void Level2::loadModels() {
     std::cout << "Level2: Loading models..." << std::endl;
     
     // Load player aircraft model
-    std::string playerModelPath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.3ds");
+    std::string playerModelPath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.obj");
     if (!player->loadModel(playerModelPath, 0.15f)) {
         std::cerr << "Level2: Could not load player model, using primitives" << std::endl;
     }
@@ -140,39 +140,29 @@ void Level2::loadModels() {
 void Level2::createTerrain() {
     std::cout << "Level2: Creating terrain..." << std::endl;
     
-    // Create sparse mountains using mountain models
-    std::string mountainModelPath = findAssetPath("assets/mountains/mountains/mountains.obj");
-    
-    // Fewer mountains than Level 1 for more open combat space
+    // Use simple primitive mountains for fast loading (Level 2 focuses on aerial combat, not terrain detail)
     float mountainPositions[][3] = {
         {-200, 0, -200},
         {200, 0, -200},
         {-200, 0, 200},
         {200, 0, 200},
         {-300, 0, 0},
-        {300, 0, 0},
-        {0, 0, -300},
-        {0, 0, 300}
+        {300, 0, 0}
     };
     
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 6; i++) {
         Obstacle* mountain = new Obstacle(
             mountainPositions[i][0],
             mountainPositions[i][1],
             mountainPositions[i][2],
-            50, 80, 50,  // Smaller mountains
+            50, 80, 50,
             ObstacleType::MOUNTAIN
         );
-        
-        // Try to load mountain model
-        if (!mountain->loadModel(mountainModelPath, 0.5f)) {
-            std::cerr << "Level2: Could not load mountain model for obstacle " << i << std::endl;
-        }
-        
+        mountain->setColor(0.5f, 0.4f, 0.3f);  // Brown/gray mountain color
         terrain.push_back(mountain);
     }
     
-    // Create ground plane
+    // Create ground plane using primitives
     Obstacle* ground = new Obstacle(0, -5, 0, 2000, 10, 2000, ObstacleType::GROUND);
     ground->setColor(0.3f, 0.5f, 0.3f);  // Green ground
     terrain.push_back(ground);
@@ -187,11 +177,14 @@ void Level2::createEnemies() {
     Enemy* enemy1 = new Enemy(-100, 100, -200, 0);
     Enemy* enemy2 = new Enemy(100, 110, -180, 180);
     
-    // Try to load enemy models (DirectX .X format needs conversion, use primitives for now)
-    // In future, convert enemy.X to OBJ format or use primitives
-    std::string enemyModelPath = findAssetPath("assets/enemy/enemy/enemy.X");
-    // enemy1->loadModel(enemyModelPath, 0.2f);  // Commented out as .X format not supported
-    // enemy2->loadModel(enemyModelPath, 0.2f);
+    // Load enemy models - use player plane model for enemies
+    std::string enemyModelPath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.obj");
+    if (!enemy1->loadModel(enemyModelPath, 0.15f)) {
+        std::cout << "Enemy model not found, using primitives" << std::endl;
+    }
+    if (!enemy2->loadModel(enemyModelPath, 0.15f)) {
+        std::cout << "Enemy model not found, using primitives" << std::endl;
+    }
     
     enemy1->setSpeed(0.7f);
     enemy2->setSpeed(0.75f);
@@ -543,6 +536,13 @@ void Level2::fireMissile() {
     
     Missile* missile = new Missile(missileStartX, missileStartY, missileStartZ, forwardX, forwardY, forwardZ, true);
     missile->setSpeed(3.0f);
+    
+    // Load missile model
+    std::string missileModelPath = findAssetPath("assets/missle/mk82snak_obj/Mk 82 Snakeye.obj");
+    if (!missile->loadModel(missileModelPath, 0.5f)) {
+        std::cout << "Missile model not found, using primitives" << std::endl;
+    }
+    
     missiles.push_back(missile);
     
     missileFireTimer = missileFireCooldown;
@@ -585,6 +585,13 @@ void Level2::spawnEnemyMissile() {
         
         Missile* missile = new Missile(ex, ey, ez, dx, dy, dz, false);
         missile->setSpeed(2.0f);
+        
+        // Load missile model
+        std::string missileModelPath = findAssetPath("assets/missle/mk82snak_obj/Mk 82 Snakeye.obj");
+        if (!missile->loadModel(missileModelPath, 0.5f)) {
+            std::cout << "Missile model not found, using primitives" << std::endl;
+        }
+        
         missiles.push_back(missile);
         
         std::cout << "Enemy fired missile!" << std::endl;

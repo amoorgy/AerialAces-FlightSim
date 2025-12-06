@@ -1212,13 +1212,22 @@ bool Level1::isLost() const {
 void Level1::createLighthouses() {
     std::cout << "\n=== Creating Lighthouses (2x plane size) ===" << std::endl;
     
+    // Load lighthouse model
+    std::string lighthouseModelPath = findAssetPath("assets/lighthouse/obj/obj/lighthouse.obj");
+    
     // Lighthouse 1: Nice visible structure on mountain peak (about 2x plane size)
     Obstacle* lighthouse1 = new Obstacle(91.6f, 117.6f, 46.1f, 12, 35, 12, ObstacleType::BUILDING);
+    if (!lighthouse1->loadModel(lighthouseModelPath, 8.0f)) {
+        std::cout << "Lighthouse model not found, using primitives" << std::endl;
+    }
     lighthouses.push_back(lighthouse1);
     std::cout << "Lighthouse 1 created at (91.6, 117.6, 46.1) - 35 units tall" << std::endl;
     
     // Lighthouse 2: Nice visible structure on another mountain peak
     Obstacle* lighthouse2 = new Obstacle(41.6f, 117.6f, -3.9f, 12, 35, 12, ObstacleType::BUILDING);
+    if (!lighthouse2->loadModel(lighthouseModelPath, 8.0f)) {
+        std::cout << "Lighthouse model not found, using primitives" << std::endl;
+    }
     lighthouses.push_back(lighthouse2);
     std::cout << "Lighthouse 2 created at (41.6, 117.6, -3.9) - 35 units tall" << std::endl;
     
