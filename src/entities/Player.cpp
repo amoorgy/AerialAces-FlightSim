@@ -19,10 +19,10 @@ Player::Player()
     : x(0), y(80), z(0),  // Start high up
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
-      speed(0.8f),
-      maxSpeed(2.5f),
-      minSpeed(0.3f),
-      acceleration(0.5f),
+      speed(1.5f),           // Increased from 0.8f
+      maxSpeed(5.0f),        // Increased from 2.5f
+      minSpeed(0.6f),        // Increased from 0.3f
+      acceleration(0.8f),    // Increased from 0.5f
       pitchSpeed(60.0f),
       yawSpeed(50.0f),
       rollSpeed(90.0f),
@@ -41,10 +41,10 @@ Player::Player(float startX, float startY, float startZ)
     : x(startX), y(startY), z(startZ),
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
-      speed(0.8f),
-      maxSpeed(2.5f),
-      minSpeed(0.3f),
-      acceleration(0.5f),
+      speed(1.5f),           // Increased from 0.8f
+      maxSpeed(5.0f),        // Increased from 2.5f
+      minSpeed(0.6f),        // Increased from 0.3f
+      acceleration(0.8f),    // Increased from 0.5f
       pitchSpeed(60.0f),
       yawSpeed(50.0f),
       rollSpeed(90.0f),
@@ -232,11 +232,11 @@ void Player::render() const {
         if (!lightingEnabled) glEnable(GL_LIGHTING);
         
         // Correct model orientation for Japanese WWII plane
-        // The model is oriented with nose pointing in -Y direction
-        // 1. Rotate 90 degrees around X to point nose forward (into +Z)
-        // 2. Rotate 180 degrees around Y to flip so nose points in correct direction
-        glRotatef(90.0f, 1.0f, 0.0f, 0.0f);   // Nose forward (model's -Y becomes +Z)
-        glRotatef(180.0f, 0.0f, 1.0f, 0.0f);  // Face correct direction
+        // The model needs to face the direction of travel (forward = +Z when yaw=0)
+        // Trying: First rotate to stand upright, then face forward
+        glRotatef(90.0f, 1.0f, 0.0f, 0.0f);    // Rotate around X - stand model upright
+        glRotatef(0.0f, 0.0f, 1.0f, 0.0f);     // No Z rotation
+        glRotatef(0.0f, 0.0f, 0.0f, 1.0f);     // No additional rotation
         
         aircraftModel->render();
         
@@ -303,15 +303,15 @@ void Player::render() const {
     glPopMatrix();
 }
 
-void Player::reset(float startX, float startY, float startZ) {
+void Player::reset(float startX, float startY, float startZ, float startYaw) {
     x = startX;
     y = startY;
     z = startZ;
     pitch = 0;
-    yaw = 0;
+    yaw = startYaw;
     roll = 0;
     velocityX = velocityY = velocityZ = 0;
-    speed = 0.8f;
+    speed = 1.5f;
     alive = true;
     barrelRolling = false;
     barrelRollAngle = 0;

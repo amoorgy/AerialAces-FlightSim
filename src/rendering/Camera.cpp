@@ -25,7 +25,13 @@ Camera::Camera()
       distance(18.0f),
       height(6.0f),
       smoothing(0.1f),
-      targetPosX(0), targetPosY(10), targetPosZ(-20) {
+      targetPosX(0), targetPosY(10), targetPosZ(-20),
+      orbitYaw(0.0f),
+      orbitPitch(0.0f),
+      mouseSensitivity(0.3f),
+      lastMouseX(0),
+      lastMouseY(0),
+      mouseControlActive(false) {
 }
 
 void Camera::update(const Player* player, float deltaTime) {
@@ -54,19 +60,25 @@ void Camera::update(const Player* player, float deltaTime) {
         lookZ = playerZ + std::cos(radYaw) * lookDist * std::cos(radPitch);
         
     } else {
-        // Third person: camera behind and above player
-        // Position camera behind the player
-        targetPosX = playerX - std::sin(radYaw) * distance;
-        targetPosY = playerY + height;  // Above player
-        targetPosZ = playerZ - std::cos(radYaw) * distance;
+        // Third person: camera behind and above player with mouse orbit support
+        // Apply mouse orbit offset to the camera angle
+        float totalYaw = playerYaw + orbitYaw;
+        float radTotalYaw = totalYaw * M_PI / 180.0f;
+        float radOrbitPitch = orbitPitch * M_PI / 180.0f;
         
-        // Look at a point ahead of and slightly below the player
-        // This creates a view where you can see both the plane and the ground below
-        float lookAhead = 20.0f;
-        float lookDown = 5.0f;  // Look slightly below player level
-        lookX = playerX + std::sin(radYaw) * lookAhead;
-        lookY = playerY - lookDown;  // Look slightly downward
-        lookZ = playerZ + std::cos(radYaw) * lookAhead;
+        // Calculate camera position with orbit offset
+        float adjustedHeight = height + std::sin(radOrbitPitch) * distance * 0.5f;
+        float adjustedDistance = distance * std::cos(radOrbitPitch);
+        
+        // Position camera behind the player with orbit offset
+        targetPosX = playerX - std::sin(radTotalYaw) * adjustedDistance;
+        targetPosY = playerY + adjustedHeight;
+        targetPosZ = playerZ - std::cos(radTotalYaw) * adjustedDistance;
+        
+        // Look at the player
+        lookX = playerX;
+        lookY = playerY;
+        lookZ = playerZ;
     }
     
     // Smooth camera movement
@@ -101,6 +113,8 @@ void Camera::apply() {
 
 void Camera::toggle() {
     firstPerson = !firstPerson;
+    // Reset orbit when toggling camera mode
+    resetOrbit();
 }
 
 void Camera::setFirstPerson(bool fp) {
@@ -117,4 +131,42 @@ void Camera::setDistance(float dist) {
 
 void Camera::setHeight(float h) {
     height = h;
+}
+
+void Camera::handleMouseMotion(int x, int y) {
+    if (!mouseControlActive || firstPerson) return;
+    
+    int deltaX = x - lastMouseX;
+    int deltaY = y - lastMouseY;
+    
+    lastMouseX = x;
+    lastMouseY = y;
+    
+    // Update orbit angles based on mouse movement
+    orbitYaw += deltaX * mouseSensitivity;
+    orbitPitch += deltaY * mouseSensitivity;
+    
+    // Clamp orbit pitch to prevent flipping
+    if (orbitPitch > 60.0f) orbitPitch = 60.0f;
+    if (orbitPitch < -30.0f) orbitPitch = -30.0f;
+    
+    // Keep orbit yaw in reasonable range
+    while (orbitYaw > 180.0f) orbitYaw -= 360.0f;
+    while (orbitYaw < -180.0f) orbitYaw += 360.0f;
+}
+
+void Camera::handleMouseButton(int button, bool pressed, int x, int y) {
+    // Left mouse button (button 0) activates orbit control
+    if (button == 0) {
+        mouseControlActive = pressed;
+        if (pressed) {
+            lastMouseX = x;
+            lastMouseY = y;
+        }
+    }
+}
+
+void Camera::resetOrbit() {
+    orbitYaw = 0.0f;
+    orbitPitch = 0.0f;
 }

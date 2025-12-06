@@ -62,10 +62,17 @@ private:
     
     // Player start position
     float startX, startY, startZ;
+    float startYaw;  // Starting rotation
     
     // Level bounds
     float levelWidth;
     float levelLength;
+    
+    // Spawn protection
+    float spawnProtectionTime;  // Seconds of invincibility after spawn
+    
+    // Color-based collision
+    bool checkColorCollision();  // Check terrain collision using color sampling
     
     // Internal methods
     void createTerrain();
@@ -77,6 +84,8 @@ private:
     void renderExplosion();
     void renderSky();
     void renderMessages();
+    void renderLensFlare();  // New: render sun lens flare effect
+    void updateLensFlare();  // New: calculate lens flare intensity
     
 public:
     Level1();
@@ -91,6 +100,7 @@ public:
     void cleanup() override;
     void restart() override;
     void handleMouse(int button, int state, int x, int y) override;
+    void handleMouseMotion(int x, int y) override;
     int getScore() const override;
     float getTimeRemaining() const override;
     const char* getName() const override;

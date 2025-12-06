@@ -10,7 +10,7 @@ class Player;
  * 
  * Follows the player aircraft in both camera modes.
  * First-person: Cockpit view, looking forward
- * Third-person: Behind and above the aircraft
+ * Third-person: Behind and above the aircraft, with mouse orbit support
  */
 class Camera {
 private:
@@ -33,6 +33,14 @@ private:
     
     // Smooth transition variables
     float targetPosX, targetPosY, targetPosZ;
+    
+    // Mouse orbit control
+    float orbitYaw;       // Horizontal orbit angle offset (degrees)
+    float orbitPitch;     // Vertical orbit angle offset (degrees)
+    float mouseSensitivity;
+    int lastMouseX;
+    int lastMouseY;
+    bool mouseControlActive;
     
 public:
     Camera();
@@ -78,6 +86,27 @@ public:
      * @param h Height above player
      */
     void setHeight(float h);
+    
+    /**
+     * Handle mouse motion for orbit control
+     * @param x Current mouse X position
+     * @param y Current mouse Y position
+     */
+    void handleMouseMotion(int x, int y);
+    
+    /**
+     * Handle mouse button for starting/stopping orbit
+     * @param button Mouse button (0=left, 1=middle, 2=right)
+     * @param pressed True if button was pressed, false if released
+     * @param x Mouse X position
+     * @param y Mouse Y position
+     */
+    void handleMouseButton(int button, bool pressed, int x, int y);
+    
+    /**
+     * Reset camera orbit angles to default
+     */
+    void resetOrbit();
     
     /**
      * Get camera position

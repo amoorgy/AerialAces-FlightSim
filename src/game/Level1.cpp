@@ -29,7 +29,7 @@ static std::string findAssetPath(const std::string& relativePath) {
         "../",                  // Parent directory
         "../../",               // Two levels up
         "../../../",            // Three levels up
-        "../../../../",         // Four levels up (out/build/x64-Debug/bin -> source root)
+        "//////////////////////////////////////////////////////////////////////",         // Four levels up (out/build/x64-Debug/bin -> source root)
         "../../../../../",      // Five levels up
         nullptr
     };
@@ -61,9 +61,11 @@ Level1::Level1()
       explosionActive(false),
       explosionTime(0),
       explosionX(0), explosionY(0), explosionZ(0),
-      startX(0), startY(80), startZ(0),  // Start HIGHER up (y=80)
+      startX(26.5f), startY(64.6f), startZ(361.3f),  // New starting position
+      startYaw(189.0f),  // Starting yaw rotation
       levelWidth(500),
-      levelLength(500) {
+      levelLength(500),
+      spawnProtectionTime(2.0f) {  // 2 seconds of spawn protection
 }
 
 Level1::~Level1() {
@@ -73,12 +75,13 @@ Level1::~Level1() {
 void Level1::init() {
     // Create player at a good starting position HIGH above the terrain
     player = new Player(startX, startY, startZ);
+    player->reset(startX, startY, startZ, startYaw);  // Set initial yaw
     
-    // Create camera - positioned behind and above the plane, looking forward and slightly down
+    // Create camera - positioned behind the plane, level with it and zoomed in
     camera = new Camera();
     camera->setFirstPerson(false);
-    camera->setDistance(15.0f);
-    camera->setHeight(5.0f);
+    camera->setDistance(8.0f);   // Closer to plane (was 10)
+    camera->setHeight(1.5f);     // More level with plane (was 3)
     
     // Create lighting
     lighting = new Lighting();
@@ -124,17 +127,19 @@ void Level1::createRings() {
     }
     rings.clear();
     
-    // Create rings at mid-altitude (between player at y=80 and terrain at y=-100)
-    // Rings at around y=50-70 range
+    // Create rings at various positions
+    // Ring at user-specified position
+    rings.push_back(new Collectible(5.68f, 82.23f, -81.31f));    // Ring 1 - user specified
     
-    rings.push_back(new Collectible(0, 60, 50));       // Ring 1
-    rings.push_back(new Collectible(30, 65, 100));     // Ring 2
-    rings.push_back(new Collectible(-25, 55, 150));    // Ring 3
-    rings.push_back(new Collectible(15, 70, 200));     // Ring 4
-    rings.push_back(new Collectible(-35, 60, 250));    // Ring 5
-    rings.push_back(new Collectible(20, 75, 300));     // Ring 6
-    rings.push_back(new Collectible(-10, 65, 350));    // Ring 7
-    rings.push_back(new Collectible(0, 70, 400));      // Ring 8
+    // Additional rings along flight path
+    rings.push_back(new Collectible(0, 60, 50));       // Ring 2
+    rings.push_back(new Collectible(30, 65, 100));     // Ring 3
+    rings.push_back(new Collectible(-25, 55, 150));    // Ring 4
+    rings.push_back(new Collectible(15, 70, 200));     // Ring 5
+    rings.push_back(new Collectible(-35, 60, 250));    // Ring 6
+    rings.push_back(new Collectible(20, 75, 300));     // Ring 7
+    rings.push_back(new Collectible(-10, 65, 350));    // Ring 8
+    rings.push_back(new Collectible(0, 70, 400));      // Ring 9
     
     totalRings = rings.size();
     
@@ -203,6 +208,15 @@ void Level1::update(float deltaTime, const bool* keys) {
         return;
     }
     
+    // Update spawn protection
+    if (spawnProtectionTime > 0) {
+        spawnProtectionTime -= deltaTime;
+        if (spawnProtectionTime <= 0) {
+            spawnProtectionTime = 0;
+            std::cout << "Spawn protection ended - be careful!" << std::endl;
+        }
+    }
+    
     // Update player
     player->update(deltaTime, keys);
     
@@ -253,6 +267,23 @@ void Level1::update(float deltaTime, const bool* keys) {
     } else if (!(keys['n'] || keys['N'])) {
         nKeyWasPressed = false;
     }
+    
+    // Debug: Print current position with G key
+    static bool gKeyWasPressed = false;
+    if ((keys['g'] || keys['G']) && !gKeyWasPressed) {
+        std::cout << "\n=== DEBUG POSITION ===" << std::endl;
+        std::cout << "Player Position: X=" << player->getX() 
+                  << ", Y=" << player->getY() 
+                  << ", Z=" << player->getZ() << std::endl;
+        std::cout << "Player Rotation: Pitch=" << player->getPitch()
+                  << ", Yaw=" << player->getYaw()
+                  << ", Roll=" << player->getRoll() << std::endl;
+        std::cout << "Player Speed: " << player->getSpeed() << std::endl;
+        std::cout << "=====================\n" << std::endl;
+        gKeyWasPressed = true;
+    } else if (!(keys['g'] || keys['G'])) {
+        gKeyWasPressed = false;
+    }
 }
 
 void Level1::checkCollisions() {
@@ -263,7 +294,7 @@ void Level1::checkCollisions() {
     float pz = player->getZ();
     float pr = player->getRadius();
     
-    // Check ring collection
+    // ========== RING COLLECTION (always active) ==========
     for (auto* ring : rings) {
         if (!ring->isCollected()) {
             float dx = px - ring->getX();
@@ -271,7 +302,7 @@ void Level1::checkCollisions() {
             float dz = pz - ring->getZ();
             float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
             
-            float collectRadius = pr + ring->getRadius() + 5.0f;
+            float collectRadius = pr + ring->getRadius() + 8.0f;
             
             if (dist < collectRadius) {
                 ring->collect();
@@ -285,25 +316,117 @@ void Level1::checkCollisions() {
         }
     }
     
-    // Crash if player goes too low (terrain is at y=0, crash when hitting ground)
-    float groundLevel = 5.0f;  // Small buffer above actual ground
-    
-    if (py - pr < groundLevel) {
-        triggerCrash(px, py, pz);
+    // ========== SPAWN PROTECTION ==========
+    if (spawnProtectionTime > 0) {
         return;
     }
     
-    // Boundaries
-    float boundaryX = levelWidth / 2.0f;
-    float boundaryZ = 500.0f;
-    
-    if (std::abs(px) > boundaryX || pz < -50.0f || pz > boundaryZ) {
-        std::cout << "Warning: Approaching level boundary!" << std::endl;
+    // ========== TERRAIN CRASH DETECTION (BVH-based) ==========
+    for (auto* obstacle : obstacles) {
+        if (obstacle->hasModel()) {
+            if (obstacle->checkModelCollision(px, py, pz, pr)) {
+                std::cout << "COLLISION at (" << px << ", " << py << ", " << pz << ")" << std::endl;
+                triggerCrash(px, py, pz);
+                return;
+            }
+        }
     }
     
-    if (py > 200.0f) {
-        std::cout << "Warning: Maximum altitude reached!" << std::endl;
+    // Ground floor check - absolute minimum altitude
+    float absoluteFloor = 2.0f;
+    if (py < absoluteFloor) {
+        std::cout << "Below absolute floor!" << std::endl;
+        triggerCrash(px, py, pz);
+        return;
     }
+}
+
+bool Level1::checkColorCollision() {
+    // Skip color collision in first-person mode (can't see terrain at player position)
+    if (camera->isFirstPerson()) {
+        return false;
+    }
+    
+    // Get player position in screen space and sample color from framebuffer
+    float px = player->getX();
+    float py = player->getY();
+    float pz = player->getZ();
+    
+    GLint viewport[4];
+    GLdouble modelview[16];
+    GLdouble projection[16];
+    GLdouble screenX, screenY, screenZ;
+    
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    
+    // Project player position to screen coordinates
+    gluProject(px, py, pz, modelview, projection, viewport, &screenX, &screenY, &screenZ);
+    
+    // Only check if player is on screen
+    if (screenX < 10 || screenX >= viewport[2] - 10 || 
+        screenY < 10 || screenY >= viewport[3] - 10) {
+        return false;
+    }
+    
+    // Sample points AHEAD of the player (in the direction of travel)
+    // This detects terrain before we fully collide
+    int sampleOffsets[][2] = {
+        {0, -10},    // Below center (terrain usually below)
+        {-8, -8},    // Bottom-left
+        {8, -8},     // Bottom-right
+        {0, -15},    // Further below
+    };
+    
+    int greenCount = 0;
+    
+    for (int i = 0; i < 4; i++) {
+        int sx = (int)screenX + sampleOffsets[i][0];
+        int sy = (int)screenY + sampleOffsets[i][1];
+        
+        // Make sure we're within screen bounds
+        if (sx < 0 || sx >= viewport[2] || sy < 0 || sy >= viewport[3]) {
+            continue;
+        }
+        
+        // Read pixel color at this position
+        unsigned char pixel[3];
+        glReadPixels(sx, sy, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, pixel);
+        
+        float r = pixel[0] / 255.0f;
+        float g = pixel[1] / 255.0f;
+        float b = pixel[2] / 255.0f;
+        
+        // Strict terrain green detection:
+        // Must be clearly green (not gray, not sky, not plane)
+        bool isTerrain = false;
+        
+        // Strong green terrain (grass/vegetation)
+        // Green must be significantly higher than red and blue
+        if (g > 0.3f && g > r * 1.2f && g > b * 1.5f && b < 0.4f) {
+            isTerrain = true;
+        }
+        
+        // Olive/brown-green terrain (mountainside)
+        if (r > 0.25f && r < 0.55f && g > 0.3f && g < 0.6f && b < 0.25f) {
+            if (g > r * 0.9f && g > b * 1.3f) {
+                isTerrain = true;
+            }
+        }
+        
+        if (isTerrain) {
+            greenCount++;
+        }
+    }
+    
+    // Require multiple green pixels to trigger collision (reduces false positives)
+    if (greenCount >= 2) {
+        std::cout << "Terrain detected: " << greenCount << " green pixels" << std::endl;
+        return true;
+    }
+    
+    return false;
 }
 
 void Level1::triggerCrash(float x, float y, float z) {
@@ -328,6 +451,9 @@ void Level1::render() {
     // Apply lighting
     lighting->apply();
     
+    // Update lens flare based on camera looking at sun
+    updateLensFlare();
+    
     // Render sky
     renderSky();
     
@@ -351,6 +477,9 @@ void Level1::render() {
         renderExplosion();
     }
     
+    // Render lens flare effect (after 3D, before HUD)
+    renderLensFlare();
+    
     // Render HUD (2D overlay)
     renderHUD();
     
@@ -364,34 +493,56 @@ void Level1::renderSky() {
     // Simple sky sphere
     glDisable(GL_LIGHTING);
     
+    // Sky color based on time of day
+    float intensity = lighting->getSunIntensity();
+    
     if (lighting->isNightMode()) {
         // Night sky - dark blue
         glColor3f(0.02f, 0.02f, 0.08f);
     } else {
-        // Day sky - gradient blue
-        float intensity = lighting->getSunIntensity();
-        glColor3f(0.4f * intensity + 0.1f, 0.6f * intensity + 0.15f, 0.95f * intensity + 0.05f);
+        // Day sky - changes with sun position
+        // Dawn/dusk: orange/pink hues
+        // Noon: bright blue
+        float warmth = 1.0f - intensity;  // More warm colors when sun is low
+        float r = 0.4f * intensity + 0.3f * warmth + 0.1f;
+        float g = 0.6f * intensity + 0.2f * warmth + 0.15f;
+        float b = 0.95f * intensity + 0.3f * warmth + 0.05f;
+        glColor3f(r, g, b);
     }
     
+    // Sky dome follows player
     glPushMatrix();
     glTranslatef(player->getX(), player->getY(), player->getZ());
     glutSolidSphere(800.0, 24, 24);
     glPopMatrix();
     
     // Draw sun/moon
-    glPushMatrix();
-    float sunAngle = lighting->getDayTime() / 24.0f * 360.0f;
-    float sunY = 400.0f * std::sin(sunAngle * M_PI / 180.0f);
-    float sunX = 400.0f * std::cos(sunAngle * M_PI / 180.0f);
+    float sunX = lighting->getSunX();
+    float sunY = lighting->getSunY();
+    float sunZ = lighting->getSunZ();
     
-    glTranslatef(player->getX() + sunX, player->getY() + std::abs(sunY) + 100.0f, player->getZ() + 300);
+    // Position sun relative to player
+    glPushMatrix();
+    glTranslatef(player->getX() + sunX * 0.8f, sunY, player->getZ() + sunZ);
     
     if (lighting->isNightMode()) {
-        glColor3f(0.9f, 0.9f, 0.85f);  // Moon
-        glutSolidSphere(25.0, 12, 12);
+        // Moon
+        glColor3f(0.9f, 0.9f, 0.85f);
+        glutSolidSphere(25.0, 16, 16);
     } else {
-        glColor3f(1.0f, 0.95f, 0.7f);  // Sun
-        glutSolidSphere(30.0, 12, 12);
+        // Sun - bright yellow/white core with glow
+        float sunIntensity = lighting->getSunIntensity();
+        
+        // Sun glow (larger, semi-transparent)
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glColor4f(1.0f, 0.95f, 0.7f, 0.3f * sunIntensity);
+        glutSolidSphere(50.0, 16, 16);
+        
+        // Sun core
+        glColor4f(1.0f, 1.0f, 0.9f, sunIntensity);
+        glutSolidSphere(30.0, 16, 16);
+        glDisable(GL_BLEND);
     }
     glPopMatrix();
     
@@ -559,8 +710,8 @@ void Level1::renderHUD() {
     
     // Controls hint at bottom
     glColor3f(0.7f, 0.7f, 0.7f);
-    sprintf(buffer, "W/S: Pitch | A/D: Roll | Q/E: Yaw | 1/2: Speed | C: Camera | N: Day/Night | R: Restart");
-    glRasterPos2f(350, 20);
+    sprintf(buffer, "W/S: Pitch | A/D: Roll | Q/E: Yaw | 1/2: Speed | C: Camera | N: Day/Night | G: Debug Pos | R: Restart");
+    glRasterPos2f(300, 20);
     for (char* c = buffer; *c != '\0'; c++) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
     }
@@ -612,7 +763,7 @@ void Level1::renderMessages() {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);  // White color - fixed
+        glColor3f(1.0f, 1.0f, 1.0f);  // White color
         sprintf(buffer, "All rings collected!");
         glRasterPos2f(520, 380);
         for (char* c = buffer; *c != '\0'; c++) {
@@ -680,6 +831,187 @@ void Level1::renderMessages() {
     glMatrixMode(GL_MODELVIEW);
 }
 
+void Level1::updateLensFlare() {
+    // Calculate camera look direction
+    float camX = camera->getX();
+    float camY = camera->getY();
+    float camZ = camera->getZ();
+    
+    // Get player position as approximate look target
+    float lookX = player->getX() - camX;
+    float lookY = player->getY() - camY;
+    float lookZ = player->getZ() - camZ;
+    
+    // For first person, use player's forward direction
+    if (camera->isFirstPerson()) {
+        float yaw = player->getYaw() * M_PI / 180.0f;
+        float pitch = player->getPitch() * M_PI / 180.0f;
+        lookX = std::sin(yaw) * std::cos(pitch);
+        lookY = -std::sin(pitch);
+        lookZ = std::cos(yaw) * std::cos(pitch);
+    }
+    
+    // Calculate flare intensity
+    float flare = lighting->calculateFlareIntensity(camX, camY, camZ, lookX, lookY, lookZ);
+    lighting->setFlareIntensity(flare);
+}
+
+void Level1::renderLensFlare() {
+    float flareIntensity = lighting->getFlareIntensity();
+    
+    if (flareIntensity < 0.01f) return;  // No visible flare
+    
+    // Switch to 2D overlay mode
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, 1280, 0, 720);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);  // Additive blending for glow
+    
+    // Screen center
+    float cx = 640.0f;
+    float cy = 360.0f;
+    
+    // Main flare glow - covers much of screen when looking at sun
+    float glowSize = 400.0f + flareIntensity * 300.0f;
+    
+    // Draw radial gradient glow
+    glBegin(GL_TRIANGLE_FAN);
+    // Center is bright
+    glColor4f(1.0f, 0.95f, 0.8f, flareIntensity * 0.6f);
+    glVertex2f(cx, cy);
+    // Edges fade out
+    glColor4f(1.0f, 0.9f, 0.6f, 0.0f);
+    int segments = 32;
+    for (int i = 0; i <= segments; i++) {
+        float angle = (float)i / segments * 2.0f * M_PI;
+        glVertex2f(cx + std::cos(angle) * glowSize, cy + std::sin(angle) * glowSize);
+    }
+    glEnd();
+    
+    // Lens flare artifacts - circles along a line from center
+    // These simulate internal lens reflections
+    float artifactColors[][4] = {
+        {1.0f, 0.8f, 0.4f, 0.3f},   // Orange
+        {0.4f, 0.8f, 1.0f, 0.2f},   // Cyan
+        {1.0f, 0.5f, 0.8f, 0.15f},  // Pink
+        {0.6f, 1.0f, 0.6f, 0.1f},   // Green
+        {1.0f, 1.0f, 0.5f, 0.25f},  // Yellow
+    };
+    float artifactPositions[] = {0.3f, 0.5f, 0.7f, 1.2f, 1.5f};
+    float artifactSizes[] = {60.0f, 40.0f, 80.0f, 30.0f, 50.0f};
+    
+    // Flare line goes from sun position toward opposite side of screen
+    // Simplified: just use center outward
+    for (int i = 0; i < 5; i++) {
+        float pos = artifactPositions[i];
+        float size = artifactSizes[i] * (0.5f + flareIntensity * 0.5f);
+        
+        // Position along flare line (from top-right toward bottom-left)
+        float fx = cx + (cx * 0.5f) * (1.0f - pos * 0.8f);
+        float fy = cy + (cy * 0.3f) * (1.0f - pos * 0.8f);
+        
+        glColor4f(artifactColors[i][0], artifactColors[i][1], 
+                  artifactColors[i][2], artifactColors[i][3] * flareIntensity);
+        
+        // Draw circle
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(fx, fy);
+        for (int j = 0; j <= 16; j++) {
+            float angle = (float)j / 16 * 2.0f * M_PI;
+            glVertex2f(fx + std::cos(angle) * size, fy + std::sin(angle) * size);
+        }
+        glEnd();
+    }
+    
+    // Horizontal streak (anamorphic flare)
+    if (flareIntensity > 0.3f) {
+        float streakAlpha = (flareIntensity - 0.3f) * 0.5f;
+        glBegin(GL_QUADS);
+        glColor4f(1.0f, 0.95f, 0.9f, 0.0f);
+        glVertex2f(0, cy - 20);
+        glColor4f(1.0f, 0.95f, 0.9f, streakAlpha);
+        glVertex2f(cx, cy - 5);
+        glColor4f(1.0f, 0.95f, 0.9f, streakAlpha);
+        glVertex2f(cx, cy + 5);
+        glColor4f(1.0f, 0.95f, 0.9f, 0.0f);
+        glVertex2f(0, cy + 20);
+        glEnd();
+        
+        glBegin(GL_QUADS);
+        glColor4f(1.0f, 0.95f, 0.9f, streakAlpha);
+        glVertex2f(cx, cy - 5);
+        glColor4f(1.0f, 0.95f, 0.9f, 0.0f);
+        glVertex2f(1280, cy - 20);
+        glColor4f(1.0f, 0.95f, 0.9f, 0.0f);
+        glVertex2f(1280, cy + 20);
+        glColor4f(1.0f, 0.95f, 0.9f, streakAlpha);
+        glVertex2f(cx, cy + 5);
+        glEnd();
+    }
+    
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+    
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+}
+
+void Level1::handleMouse(int button, int state, int x, int y) {
+    if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
+        // Toggle camera
+        camera->toggle();
+        std::cout << "Camera: " << (camera->isFirstPerson() ? "First Person" : "Third Person") << std::endl;
+    }
+    
+    // Pass mouse button events to camera for orbit control
+    // Map GLUT button to camera button index
+    int buttonIndex = 0;
+    if (button == GLUT_LEFT_BUTTON) buttonIndex = 0;
+    else if (button == GLUT_MIDDLE_BUTTON) buttonIndex = 1;
+    else if (button == GLUT_RIGHT_BUTTON) buttonIndex = 2;
+    
+    camera->handleMouseButton(buttonIndex, state == GLUT_DOWN, x, y);
+}
+
+void Level1::handleMouseMotion(int x, int y) {
+    // Pass mouse motion to camera for orbit control
+    if (camera) {
+        camera->handleMouseMotion(x, y);
+    }
+}
+
+int Level1::getScore() const {
+    return score;
+}
+
+float Level1::getTimeRemaining() const {
+    return timer.getTime();
+}
+
+const char* Level1::getName() const {
+    return "Level 1: Mountain Valley Challenge";
+}
+
+void Level1::toggleDayNight() {
+    lighting->toggleDayNight();
+    std::cout << "Mode: " << (lighting->isNightMode() ? "Night" : "Day") << std::endl;
+}
+
+bool Level1::isNightMode() const {
+    return lighting->isNightMode();
+}
+
 bool Level1::isWon() const {
     return state == Level1State::WON;
 }
@@ -713,7 +1045,7 @@ void Level1::restart() {
     std::cout << "\nRestarting Level 1..." << std::endl;
     
     // Reset player
-    player->reset(startX, startY, startZ);
+    player->reset(startX, startY, startZ, startYaw);
     
     // Reset rings
     for (auto* ring : rings) {
@@ -729,37 +1061,14 @@ void Level1::restart() {
     explosionActive = false;
     explosionTime = 0;
     
+    // Reset camera orbit
+    camera->resetOrbit();
+    
+    // Reset spawn protection
+    spawnProtectionTime = 2.0f;
+    
     // Reset state
     state = Level1State::PLAYING;
     
     std::cout << "Level restarted! Collect " << totalRings << " rings!\n" << std::endl;
-}
-
-void Level1::handleMouse(int button, int state, int x, int y) {
-    if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
-        // Toggle camera
-        camera->toggle();
-        std::cout << "Camera: " << (camera->isFirstPerson() ? "First Person" : "Third Person") << std::endl;
-    }
-}
-
-int Level1::getScore() const {
-    return score;
-}
-
-float Level1::getTimeRemaining() const {
-    return timer.getTime();
-}
-
-const char* Level1::getName() const {
-    return "Level 1: Mountain Valley Challenge";
-}
-
-void Level1::toggleDayNight() {
-    lighting->toggleDayNight();
-    std::cout << "Mode: " << (lighting->isNightMode() ? "Night" : "Day") << std::endl;
-}
-
-bool Level1::isNightMode() const {
-    return lighting->isNightMode();
 }

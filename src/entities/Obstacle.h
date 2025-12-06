@@ -102,6 +102,21 @@ public:
      * (cones narrow at top)
      */
     float getRadiusAtHeight(float h) const;
+    
+    /**
+     * Check collision with loaded model
+     * @param px Player X position
+     * @param py Player Y position
+     * @param pz Player Z position
+     * @param radius Player collision radius
+     * @return true if collision detected
+     */
+    bool checkModelCollision(float px, float py, float pz, float radius) const;
+    
+    /**
+     * Check if model is loaded
+     */
+    bool hasModel() const { return useModel && obstacleModel != nullptr; }
 };
 
 #endif // OBSTACLE_H

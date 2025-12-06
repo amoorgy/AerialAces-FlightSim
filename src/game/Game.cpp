@@ -40,11 +40,14 @@ void Game::init() {
     std::cout << "  SPACE  : Barrel Roll" << std::endl;
     std::cout << "  C      : Toggle Camera" << std::endl;
     std::cout << "  N      : Toggle Day/Night" << std::endl;
+    std::cout << "  G      : Print Debug Position" << std::endl;
     std::cout << "  R      : Restart Level" << std::endl;
     std::cout << "  P      : Pause" << std::endl;
     std::cout << "  ESC    : Quit" << std::endl;
     std::cout << std::endl;
-    std::cout << "Right-click to toggle camera view" << std::endl;
+    std::cout << "Mouse:" << std::endl;
+    std::cout << "  Left-click + drag : Orbit camera (3rd person)" << std::endl;
+    std::cout << "  Right-click       : Toggle camera view" << std::endl;
     std::cout << std::endl;
     
     // OpenGL initialization
@@ -209,6 +212,11 @@ void Game::handleMouse(int button, int buttonState, int x, int y) {
 
 void Game::handleMouseMotion(int x, int y) {
     input.setMousePosition(x, y);
+    
+    // Forward mouse motion to current level for camera orbit control
+    if (currentLevel) {
+        currentLevel->handleMouseMotion(x, y);
+    }
 }
 
 void Game::handleReshape(int width, int height) {

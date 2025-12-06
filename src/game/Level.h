@@ -52,13 +52,20 @@ public:
     virtual void restart() = 0;
     
     /**
-     * Handle mouse input
+     * Handle mouse button input
      * @param button Mouse button
      * @param state Button state
      * @param x Mouse X position
      * @param y Mouse Y position
      */
     virtual void handleMouse(int button, int state, int x, int y) = 0;
+    
+    /**
+     * Handle mouse motion
+     * @param x Mouse X position
+     * @param y Mouse Y position
+     */
+    virtual void handleMouseMotion(int x, int y) = 0;
     
     /**
      * Get current score

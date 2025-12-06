@@ -208,3 +208,50 @@ float Obstacle::getRadiusAtHeight(float h) const {
     float heightRatio = (h - y) / height;
     return baseRadius * (1.0f - heightRatio);
 }
+
+bool Obstacle::checkModelCollision(float px, float py, float pz, float radius) const {
+    if (!useModel || obstacleModel == nullptr || !obstacleModel->isLoaded()) {
+        return false;
+    }
+    
+    // Convert player world position to local model coordinates
+    // The obstacle is positioned at (x, y, z) in world space
+    float localX = px - x;
+    float localY = py - y;
+    float localZ = pz - z;
+    
+    // The terrain is rendered with glRotatef(-90, 1, 0, 0) which rotates around X axis
+    // This transforms model space: (mx, my, mz) -> (mx, -mz, my) in world space
+    // So to go from world to model: (wx, wy, wz) -> (wx, wz, -wy)
+    if (type == ObstacleType::GROUND) {
+        float modelX = localX;
+        float modelY = localZ;      // World Z becomes model Y
+        float modelZ = -localY;     // World Y becomes negative model Z
+        localX = modelX;
+        localY = modelY;
+        localZ = modelZ;
+    }
+    
+    // Debug output - more frequent for testing
+    static int debugCounter = 0;
+    debugCounter++;
+    if (debugCounter % 60 == 0) {  // Every second at 60fps
+        float minX, maxX, minY, maxY, minZ, maxZ;
+        obstacleModel->getBounds(minX, maxX, minY, maxY, minZ, maxZ);
+        std::cout << "=== Collision Debug ===" << std::endl;
+        std::cout << "Player world: (" << px << ", " << py << ", " << pz << ")" << std::endl;
+        std::cout << "Obstacle pos: (" << x << ", " << y << ", " << z << ")" << std::endl;
+        std::cout << "Local (transformed): (" << localX << ", " << localY << ", " << localZ << ")" << std::endl;
+        std::cout << "Model bounds: X[" << minX << "," << maxX << "] Y[" << minY << "," << maxY << "] Z[" << minZ << "," << maxZ << "]" << std::endl;
+        std::cout << "Radius: " << radius << std::endl;
+        
+        // Check if player is even within model bounds
+        bool inBounds = (localX >= minX && localX <= maxX &&
+                         localY >= minY && localY <= maxY &&
+                         localZ >= minZ && localZ <= maxZ);
+        std::cout << "Within model bounds: " << (inBounds ? "YES" : "NO") << std::endl;
+        std::cout << "======================" << std::endl;
+    }
+    
+    return obstacleModel->checkCollision(localX, localY, localZ, radius);
+}

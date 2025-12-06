@@ -87,8 +87,9 @@ public:
     /**
      * Reset player to starting position
      * @param startX, startY, startZ New position
+     * @param startYaw Initial yaw rotation (default 0)
      */
-    void reset(float startX, float startY, float startZ);
+    void reset(float startX, float startY, float startZ, float startYaw = 0.0f);
     
     /**
      * Start barrel roll animation
