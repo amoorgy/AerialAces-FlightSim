@@ -21,7 +21,8 @@ Game::Game()
       deltaTime(0.016f),
       windowWidth(1280),
       windowHeight(720),
-      pauseKeyPressed(false) {
+      pauseKeyPressed(false),
+      lKeyPressed(false) {
 }
 
 Game::~Game() {
@@ -111,14 +112,21 @@ void Game::update(float dt) {
         }
     }
     
-    // Handle level transition input
-    if (state == GameState::LEVEL_COMPLETE && (input.isKeyPressed('l') || input.isKeyPressed('L'))) {
-        std::cout << "L key detected! Loading next level..." << std::endl;
-        if (currentLevelIndex < MAX_LEVELS) {
-            loadLevel(currentLevelIndex + 1);
-        } else {
-            std::cout << "Congratulations! You've completed all levels!" << std::endl;
-            state = GameState::GAME_OVER;
+    // Handle level transition input with debouncing
+    if (state == GameState::LEVEL_COMPLETE) {
+        bool lPressed = input.isKeyPressed('l') || input.isKeyPressed('L');
+        if (lPressed && !lKeyPressed) {
+            std::cout << "L key detected! Current level: " << currentLevelIndex << ", MAX_LEVELS: " << MAX_LEVELS << std::endl;
+            if (currentLevelIndex < MAX_LEVELS) {
+                std::cout << "Loading level " << (currentLevelIndex + 1) << "..." << std::endl;
+                loadLevel(currentLevelIndex + 1);
+            } else {
+                std::cout << "Congratulations! You've completed all levels!" << std::endl;
+                state = GameState::GAME_OVER;
+            }
+            lKeyPressed = true;
+        } else if (!lPressed) {
+            lKeyPressed = false;
         }
     }
     

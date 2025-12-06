@@ -43,8 +43,9 @@ private:
     int windowWidth;
     int windowHeight;
     
-    // Pause state
+    // Key state tracking
     bool pauseKeyPressed;
+    bool lKeyPressed;
     
 public:
     Game();

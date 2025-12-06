@@ -598,14 +598,42 @@ void Level1::render() {
     // Render lighthouses with their rotating beams
     renderLighthouses();
     
-    // Render rings
+    // Render rings with glow in night mode
+    if (lighting->isNightMode()) {
+        // Make rings emit light in night mode
+        GLfloat emission[] = {0.8f, 0.8f, 0.0f, 1.0f};  // Yellow glow
+        GLfloat shininess = 100.0f;
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
+        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
+    }
+    
     for (auto* ring : rings) {
         ring->render();
     }
     
+    if (lighting->isNightMode()) {
+        // Reset emission
+        GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
+    }
+    
     // Render player (only in third person)
     if (!camera->isFirstPerson() && player->isAlive()) {
+        if (lighting->isNightMode()) {
+            // Make player slightly visible in night mode
+            GLfloat emission[] = {0.2f, 0.2f, 0.3f, 1.0f};  // Slight blue glow
+            GLfloat shininess = 60.0f;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
+            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
+        }
+        
         player->render();
+        
+        if (lighting->isNightMode()) {
+            // Reset emission
+            GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
+        }
     }
     
     // ==== END LIT GEOMETRY ====
@@ -629,19 +657,24 @@ void Level1::render() {
 }
 
 void Level1::renderSky() {
-    // Perpetual sunset sky
     glDisable(GL_LIGHTING);
     
     float intensity = lighting->getSunIntensity();
+    bool isNight = lighting->isNightMode();
     
-    // Sunset sky gradient - warm oranges, pinks, and purples
-    // Never dark, always beautiful sunset colors
-    float warmth = 1.0f - intensity;  // More warm colors when sun is lower
+    float r, g, b;
     
-    // Base sky color - gradient from warm sunset
-    float r = 0.6f + warmth * 0.3f;   // Orange-red: 0.6 to 0.9
-    float g = 0.4f + warmth * 0.1f;   // Less green: 0.4 to 0.5
-    float b = 0.5f - warmth * 0.2f;   // Purple-blue: 0.5 to 0.3
+    if (isNight) {
+        // Night sky - very dark blue/black
+        r = 0.01f;
+        g = 0.01f;
+        b = 0.05f;
+    } else {
+        // Day sky - bright blue
+        r = 0.4f;
+        g = 0.6f;
+        b = 0.9f;
+    }
     
     glColor3f(r, g, b);
     
@@ -651,33 +684,35 @@ void Level1::renderSky() {
     glutSolidSphere(800.0, 24, 24);
     glPopMatrix();
     
-    // Draw sun - large, warm sunset sun
-    float sunX = lighting->getSunX();
-    float sunY = lighting->getSunY();
-    float sunZ = lighting->getSunZ();
-    
-    // Position sun relative to player
-    glPushMatrix();
-    glTranslatef(player->getX() + sunX * 0.8f, sunY, player->getZ() + sunZ);
-    
-    // Sunset sun - large orange/red glow
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    
-    // Outer glow - very large, soft orange
-    glColor4f(1.0f, 0.5f + warmth * 0.2f, 0.2f, 0.15f * intensity);
-    glutSolidSphere(80.0, 16, 16);
-    
-    // Middle glow - orange-yellow
-    glColor4f(1.0f, 0.7f, 0.3f, 0.25f * intensity);
-    glutSolidSphere(50.0, 16, 16);
-    
-    // Sun core - bright yellow-white
-    glColor4f(1.0f, 0.95f, 0.7f, intensity);
-    glutSolidSphere(30.0, 16, 16);
-    
-    glDisable(GL_BLEND);
-    glPopMatrix();
+    // Draw sun/moon
+    if (!isNight) {
+        float sunX = lighting->getSunX();
+        float sunY = lighting->getSunY();
+        float sunZ = lighting->getSunZ();
+        
+        // Position sun relative to player
+        glPushMatrix();
+        glTranslatef(player->getX() + sunX * 0.8f, sunY, player->getZ() + sunZ);
+        
+        // Day sun - bright yellow
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        
+        // Outer glow
+        glColor4f(1.0f, 0.9f, 0.2f, 0.15f * intensity);
+        glutSolidSphere(80.0, 16, 16);
+        
+        // Middle glow
+        glColor4f(1.0f, 1.0f, 0.5f, 0.3f * intensity);
+        glutSolidSphere(50.0, 16, 16);
+        
+        // Sun core
+        glColor4f(1.0f, 1.0f, 0.9f, intensity);
+        glutSolidSphere(30.0, 16, 16);
+        
+        glDisable(GL_BLEND);
+        glPopMatrix();
+    }
     
     glEnable(GL_LIGHTING);
 }
@@ -929,7 +964,7 @@ void Level1::renderMessages() {
         // Next level prompt
         glColor3f(0.2f, 1.0f, 1.0f);  // Cyan color
         sprintf(buffer, "Press L to continue to Level 2");
-        glRasterPos2f(480, 260);
+        glRasterPos2f(480, 220);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
@@ -966,12 +1001,14 @@ void Level1::renderMessages() {
         }
     }
     
-    // Restart hint
-    glColor3f(1.0f, 0.9f, 0.2f);
-    sprintf(buffer, "Press R to restart");
-    glRasterPos2f(540, 240);
-    for (char* c = buffer; *c != '\0'; c++) {
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+    // Restart hint (show only on game over, not on victory)
+    if (state == Level1State::LOST) {
+        glColor3f(1.0f, 0.9f, 0.2f);
+        sprintf(buffer, "Press R to restart");
+        glRasterPos2f(540, 240);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
     }
     
     glEnable(GL_DEPTH_TEST);

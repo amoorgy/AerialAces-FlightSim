@@ -71,6 +71,7 @@ Level2::Level2()
       safeZoneRadius(100.0f),
       missileWarning(false),
       warningFlashTimer(0),
+      nKeyWasPressed(false),
       startX(0), startY(120), startZ(0),
       startYaw(0),
       levelWidth(800),
@@ -206,6 +207,14 @@ void Level2::update(float deltaTime, const bool* keys) {
         if (state == Level2State::WON || state == Level2State::LOST) {
             return;
         }
+    }
+    
+    // Handle day/night toggle
+    if ((keys['n'] || keys['N']) && !nKeyWasPressed) {
+        toggleDayNight();
+        nKeyWasPressed = true;
+    } else if (!(keys['n'] || keys['N'])) {
+        nKeyWasPressed = false;
     }
     
     // Update player
@@ -694,23 +703,53 @@ void Level2::render() {
         }
     }
     
-    // Render player
+    // Render player with glow in night mode
     if (player && player->isAlive()) {
+        if (lighting && lighting->isNightMode()) {
+            GLfloat emission[] = {0.2f, 0.2f, 0.3f, 1.0f};
+            GLfloat shininess = 60.0f;
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
+            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
+        }
         player->render();
+        if (lighting && lighting->isNightMode()) {
+            GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
+        }
     }
     
-    // Render enemies
+    // Render enemies with red glow in night mode
+    if (lighting && lighting->isNightMode()) {
+        GLfloat emission[] = {0.5f, 0.1f, 0.1f, 1.0f};  // Red glow
+        GLfloat shininess = 80.0f;
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
+        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
+    }
     for (auto* enemy : enemies) {
         if (enemy) {
             enemy->render();
         }
     }
+    if (lighting && lighting->isNightMode()) {
+        GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
+    }
     
-    // Render missiles
+    // Render missiles with bright glow in night mode
+    if (lighting && lighting->isNightMode()) {
+        GLfloat emission[] = {0.8f, 0.5f, 0.0f, 1.0f};  // Orange glow
+        GLfloat shininess = 100.0f;
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
+        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
+    }
     for (auto* missile : missiles) {
         if (missile) {
             missile->render();
         }
+    }
+    if (lighting && lighting->isNightMode()) {
+        GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
     }
     
     // Render explosions
@@ -748,14 +787,27 @@ void Level2::renderSky() {
     glPushMatrix();
     glLoadIdentity();
     
+    bool isNight = lighting && lighting->isNightMode();
+    
     // Sky gradient
     glBegin(GL_QUADS);
-    glColor3f(0.3f, 0.5f, 0.8f);  // Top (darker blue)
-    glVertex3f(-500, 200, -500);
-    glVertex3f(500, 200, -500);
-    glColor3f(0.6f, 0.8f, 1.0f);  // Bottom (lighter blue)
-    glVertex3f(500, -50, -500);
-    glVertex3f(-500, -50, -500);
+    if (isNight) {
+        // Night sky
+        glColor3f(0.01f, 0.01f, 0.05f);  // Very dark blue top
+        glVertex3f(-500, 200, -500);
+        glVertex3f(500, 200, -500);
+        glColor3f(0.02f, 0.02f, 0.08f);  // Slightly lighter bottom
+        glVertex3f(500, -50, -500);
+        glVertex3f(-500, -50, -500);
+    } else {
+        // Day sky
+        glColor3f(0.3f, 0.5f, 0.8f);  // Darker blue top
+        glVertex3f(-500, 200, -500);
+        glVertex3f(500, 200, -500);
+        glColor3f(0.6f, 0.8f, 1.0f);  // Lighter blue bottom
+        glVertex3f(500, -50, -500);
+        glVertex3f(-500, -50, -500);
+    }
     glEnd();
     
     glPopMatrix();
@@ -1111,4 +1163,11 @@ void Level2::handleMouseButton(int button, int buttonState, int x, int y) {
 
 void Level2::handleMouseMove(int x, int y) {
     // Mouse movement handled by camera in Level base class if needed
+}
+
+void Level2::toggleDayNight() {
+    if (lighting) {
+        lighting->toggleDayNight();
+        std::cout << "Mode: " << (lighting->isNightMode() ? "Night" : "Day") << std::endl;
+    }
 }

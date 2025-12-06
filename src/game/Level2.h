@@ -92,6 +92,9 @@ private:
     bool missileWarning;
     float warningFlashTimer;
     
+    // Key press tracking
+    bool nKeyWasPressed;
+    
     // Explosion effects
     struct ExplosionEffect {
         float x, y, z;
@@ -170,6 +173,9 @@ public:
     void handleKeyPress(unsigned char key, bool pressed);
     void handleMouseButton(int button, int state, int x, int y);
     void handleMouseMove(int x, int y);
+    
+    // Day/night toggle
+    void toggleDayNight();
 };
 
 #endif // LEVEL2_H

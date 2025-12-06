@@ -114,15 +114,15 @@ void Obstacle::render() const {
             glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);  // Rotate to lay flat if model is vertical
         }
         
-        // Set terrain color (brownish-green for landscape)
-        glColor3f(0.45f, 0.55f, 0.35f);
+        // Set terrain color (dimmer sandy/earth tones)
+        glColor3f(0.55f, 0.50f, 0.35f);  // Dimmer sandy color
         
         GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
         if (!lightingEnabled) glEnable(GL_LIGHTING);
         
-        // Set material properties
-        GLfloat matAmbient[] = { 0.2f, 0.25f, 0.15f, 1.0f };
-        GLfloat matDiffuse[] = { 0.45f, 0.55f, 0.35f, 1.0f };
+        // Set material properties - dimmer earth tones
+        GLfloat matAmbient[] = { 0.22f, 0.20f, 0.15f, 1.0f };   // Dimmer ambient
+        GLfloat matDiffuse[] = { 0.55f, 0.50f, 0.35f, 1.0f };   // Dimmer diffuse
         GLfloat matSpecular[] = { 0.05f, 0.05f, 0.05f, 1.0f };
         GLfloat matShininess[] = { 5.0f };
         
