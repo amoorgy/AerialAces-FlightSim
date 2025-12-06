@@ -16,15 +16,15 @@
 #endif
 
 Lighting::Lighting()
-    : dayTime(8.0f),         // Start at 8am (early morning)
-      daySpeed(0.02f),       // Very slow - takes ~800 seconds (13+ min) for full day
-      nightMode(false),
-      sunIntensity(1.0f),
-      sunX(100.0f), sunY(200.0f), sunZ(100.0f),
+    : dayTime(17.0f),        // Start at 5pm (golden hour/sunset)
+      daySpeed(0.02f),       // Slow speed - takes ~30 seconds for noticeable change
+      nightMode(false),      // Always daytime (sunset)
+      sunIntensity(0.7f),    // Start at sunset intensity
+      sunX(100.0f), sunY(80.0f), sunZ(100.0f),
       sunDistance(500.0f),
       lighthouseAngle(0.0f),
       lighthouseSpeed(45.0f),
-      ambientR(0.3f), ambientG(0.3f), ambientB(0.3f),
+      ambientR(0.4f), ambientG(0.35f), ambientB(0.3f),
       flashIntensity(0.0f),
       flashDecay(3.0f),
       flareIntensity(0.0f) {
@@ -33,7 +33,7 @@ Lighting::Lighting()
 void Lighting::init() {
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);  // Sun
-    glEnable(GL_LIGHT1);  // Lighthouse (optional)
+    glEnable(GL_LIGHT1);  // Fill light for sunset
     glEnable(GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
     
@@ -45,47 +45,40 @@ void Lighting::init() {
 }
 
 void Lighting::update(float deltaTime) {
-    // Update day/night cycle
-    if (daySpeed > 0) {
-        dayTime += daySpeed * deltaTime;
-        if (dayTime >= 24.0f) dayTime -= 24.0f;
-    }
+    // Perpetual sunset cycle - oscillates between golden hour and deep sunset
+    // Range: 16.5 (4:30pm golden hour) to 18.5 (6:30pm sunset)
+    // Never goes to night!
     
-    // Calculate sun intensity based on time of day
-    // Dawn: ~6am, Noon: 12pm, Dusk: ~18pm, Night: 0-6, 18-24
-    float timeAngle;
-    if (dayTime >= 6.0f && dayTime <= 18.0f) {
-        // Daytime: sun rises at 6, peaks at 12, sets at 18
-        timeAngle = (dayTime - 6.0f) / 12.0f * M_PI;
-        sunIntensity = std::sin(timeAngle);
-    } else {
-        // Nighttime
-        sunIntensity = 0.0f;
-    }
+    dayTime += daySpeed * deltaTime;
     
-    // Clamp intensity and determine night mode
-    sunIntensity = std::max(0.0f, std::min(1.0f, sunIntensity));
-    nightMode = (sunIntensity < 0.2f);
+    // Oscillate between 16.5 and 18.5 (2 hour range of sunset)
+    // Use sine wave for smooth back-and-forth
+    float cycleTime = dayTime * 0.1f;  // Slow cycle
+    float sunsetPhase = std::sin(cycleTime);  // -1 to 1
     
-    // Calculate sun position - sun moves in an arc across the sky
-    // At noon (12), sun is directly overhead
-    // At 6am, sun is on the horizon (east)
-    // At 6pm, sun is on the horizon (west)
-    float sunAngle = (dayTime - 6.0f) / 12.0f * M_PI;  // 0 at 6am, PI at 6pm
+    // Map to sunset time range: 16.5 to 18.5
+    float effectiveTime = 17.5f + sunsetPhase;  // 16.5 to 18.5
     
-    // Sun position relative to world origin
-    sunY = std::sin(sunAngle) * sunDistance;          // Height
-    sunX = std::cos(sunAngle) * sunDistance * 0.5f;   // East-West movement
-    sunZ = sunDistance * 0.3f;                         // Slightly in front
+    // Calculate sun intensity - always in the "sunset" range (0.5 to 0.85)
+    // This keeps it bright enough to see but with warm sunset colors
+    float timeFromNoon = std::abs(effectiveTime - 12.0f);  // 4.5 to 6.5 hours from noon
+    sunIntensity = 0.85f - (timeFromNoon - 4.5f) * 0.175f;  // 0.85 at 4:30pm, 0.5 at 6:30pm
+    sunIntensity = std::max(0.5f, std::min(0.85f, sunIntensity));
     
-    // Keep sun above horizon during day
-    if (sunY < 0) sunY = 0;
+    // Never go to night mode
+    nightMode = false;
     
-    // Update lighthouse beam rotation
-    if (nightMode) {
-        lighthouseAngle += lighthouseSpeed * deltaTime;
-        if (lighthouseAngle >= 360.0f) lighthouseAngle -= 360.0f;
-    }
+    // Calculate sun position - low on horizon for sunset effect
+    // Sun angle based on effective time (low angle = long shadows, warm light)
+    float sunAngle = (effectiveTime - 6.0f) / 12.0f * M_PI;  // Angle in sky
+    
+    // Sun position - keep it low on the horizon
+    sunY = std::sin(sunAngle) * sunDistance * 0.4f;  // Lower sun for sunset
+    sunX = std::cos(sunAngle) * sunDistance * 0.6f;  // Moving across horizon
+    sunZ = sunDistance * 0.4f;
+    
+    // Minimum sun height (never fully set)
+    if (sunY < 40.0f) sunY = 40.0f;
     
     // Update flash decay
     if (flashIntensity > 0) {
@@ -93,21 +86,13 @@ void Lighting::update(float deltaTime) {
         if (flashIntensity < 0) flashIntensity = 0;
     }
     
-    // Adjust ambient based on sun intensity with smooth transition
-    float dayAmbient = 0.25f + sunIntensity * 0.15f;
-    float nightAmbient = 0.08f;
+    // Warm sunset ambient - always warm, varies slightly
+    float warmth = 1.0f - sunIntensity;  // More warm when sun is lower
     
-    if (nightMode) {
-        ambientR = nightAmbient;
-        ambientG = nightAmbient;
-        ambientB = nightAmbient + 0.03f;  // Slightly blue at night
-    } else {
-        // Warm ambient during day, cooler at dawn/dusk
-        float warmth = sunIntensity;
-        ambientR = dayAmbient + warmth * 0.05f;
-        ambientG = dayAmbient;
-        ambientB = dayAmbient - warmth * 0.02f;
-    }
+    // Sunset ambient colors - warm oranges and golds
+    ambientR = 0.35f + warmth * 0.15f;   // 0.35 to 0.50
+    ambientG = 0.28f + warmth * 0.05f;   // 0.28 to 0.33
+    ambientB = 0.22f - warmth * 0.05f;   // 0.22 to 0.17
     
     // Add flash effect to ambient
     ambientR = std::min(1.0f, ambientR + flashIntensity);
@@ -116,94 +101,84 @@ void Lighting::update(float deltaTime) {
 }
 
 void Lighting::apply() {
-    // Global ambient light
+    // Global ambient light - warm sunset tones
     GLfloat globalAmbient[] = {ambientR, ambientG, ambientB, 1.0f};
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient);
     
-    // Sun light (GL_LIGHT0)
+    // Sun light (GL_LIGHT0) - warm sunset colors
     GLfloat sunPos[] = {sunX, sunY, sunZ, 0.0f}; // Directional (w=0)
     
-    // Sun color changes throughout day
-    // Morning/evening: warm orange
-    // Noon: bright white-yellow
-    float warmth = 1.0f - sunIntensity;  // More warm when sun is low
+    // Sunset sun color - warm orange/gold tones
+    // Lower sun = more orange/red, higher = more golden yellow
+    float warmth = 1.0f - sunIntensity;  // More warm when intensity is lower
+    
     GLfloat sunDiffuse[] = {
-        sunIntensity * (1.0f + warmth * 0.3f), 
-        sunIntensity * (0.95f - warmth * 0.1f), 
-        sunIntensity * (0.8f - warmth * 0.3f), 
+        sunIntensity * (1.0f + warmth * 0.4f),     // Strong red/orange
+        sunIntensity * (0.75f - warmth * 0.15f),   // Less green for warm tone
+        sunIntensity * (0.4f - warmth * 0.2f),     // Minimal blue
         1.0f
     };
     GLfloat sunAmbient[] = {
-        sunIntensity * 0.15f, 
-        sunIntensity * 0.15f, 
-        sunIntensity * 0.15f, 
+        sunIntensity * 0.25f, 
+        sunIntensity * 0.18f, 
+        sunIntensity * 0.1f, 
         1.0f
     };
-    GLfloat sunSpecular[] = {sunIntensity, sunIntensity, sunIntensity * 0.9f, 1.0f};
+    GLfloat sunSpecular[] = {
+        sunIntensity * 1.1f, 
+        sunIntensity * 0.9f, 
+        sunIntensity * 0.5f, 
+        1.0f
+    };
     
     glLightfv(GL_LIGHT0, GL_POSITION, sunPos);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, sunDiffuse);
     glLightfv(GL_LIGHT0, GL_AMBIENT, sunAmbient);
     glLightfv(GL_LIGHT0, GL_SPECULAR, sunSpecular);
     
-    // Lighthouse light (GL_LIGHT1) - only in night mode
-    if (nightMode) {
-        glEnable(GL_LIGHT1);
-        
-        float radAngle = lighthouseAngle * M_PI / 180.0f;
-        
-        GLfloat lighthousePos[] = {50.0f, 30.0f, 50.0f, 1.0f};
-        GLfloat spotDir[] = {
-            std::cos(radAngle),
-            -0.3f,
-            std::sin(radAngle)
-        };
-        
-        GLfloat lighthouseDiffuse[] = {1.0f, 1.0f, 0.8f, 1.0f};
-        GLfloat lighthouseAmbient[] = {0.0f, 0.0f, 0.0f, 1.0f};
-        
-        glLightfv(GL_LIGHT1, GL_POSITION, lighthousePos);
-        glLightfv(GL_LIGHT1, GL_DIFFUSE, lighthouseDiffuse);
-        glLightfv(GL_LIGHT1, GL_AMBIENT, lighthouseAmbient);
-        glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, spotDir);
-        glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 30.0f);
-        glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 10.0f);
-        glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 1.0f);
-        glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.001f);
-        glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.0001f);
-    } else {
-        glDisable(GL_LIGHT1);
-    }
+    // Fill light (GL_LIGHT1) - soft blue/purple from opposite side for sunset atmosphere
+    glEnable(GL_LIGHT1);
+    
+    GLfloat fillPos[] = {-sunX * 0.5f, sunY * 0.3f, -sunZ * 0.5f, 0.0f};
+    GLfloat fillDiffuse[] = {
+        0.15f * sunIntensity,   // Slight cool tint
+        0.12f * sunIntensity,
+        0.2f * sunIntensity,    // More blue for sky reflection
+        1.0f
+    };
+    GLfloat fillAmbient[] = {0.05f, 0.05f, 0.08f, 1.0f};
+    
+    glLightfv(GL_LIGHT1, GL_POSITION, fillPos);
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, fillDiffuse);
+    glLightfv(GL_LIGHT1, GL_AMBIENT, fillAmbient);
+    glLightfv(GL_LIGHT1, GL_SPECULAR, fillDiffuse);
 }
 
 void Lighting::toggleDayNight() {
-    if (nightMode) {
-        dayTime = 12.0f;  // Jump to noon
+    // In sunset-only mode, this just shifts the sunset phase
+    // Cycle between early golden hour and deeper sunset
+    if (sunIntensity > 0.7f) {
+        dayTime += 5.0f;  // Move toward deeper sunset
     } else {
-        dayTime = 0.0f;   // Jump to midnight
-    }
-    nightMode = !nightMode;
-    
-    if (nightMode) {
-        sunIntensity = 0.0f;
-    } else {
-        sunIntensity = 1.0f;
+        dayTime -= 5.0f;  // Move toward golden hour
     }
 }
 
 void Lighting::setNightMode(bool night) {
-    nightMode = night;
-    if (nightMode) {
-        dayTime = 0.0f;
-        sunIntensity = 0.0f;
+    // Ignore night mode - always stay in sunset
+    nightMode = false;
+    
+    if (night) {
+        // If "night" requested, go to deeper sunset
+        dayTime = 18.0f;
     } else {
-        dayTime = 12.0f;
-        sunIntensity = 1.0f;
+        // If "day" requested, go to golden hour
+        dayTime = 16.5f;
     }
 }
 
 bool Lighting::isNightMode() const {
-    return nightMode;
+    return nightMode;  // Always false in sunset mode
 }
 
 void Lighting::flashEffect(float intensity) {
@@ -228,8 +203,8 @@ float Lighting::getLighthouseAngle() const {
 
 float Lighting::calculateFlareIntensity(float camX, float camY, float camZ,
                                          float lookX, float lookY, float lookZ) const {
-    // If it's night or sun is below horizon, no flare
-    if (nightMode || sunIntensity < 0.1f) {
+    // Sunset always has some sun to create flares
+    if (sunIntensity < 0.3f) {
         return 0.0f;
     }
     
@@ -246,7 +221,7 @@ float Lighting::calculateFlareIntensity(float camX, float camY, float camZ,
     toSunY /= toSunLen;
     toSunZ /= toSunLen;
     
-    // Normalize look direction (should already be normalized but just in case)
+    // Normalize look direction
     float lookLen = std::sqrt(lookX*lookX + lookY*lookY + lookZ*lookZ);
     if (lookLen < 0.001f) return 0.0f;
     
@@ -258,14 +233,15 @@ float Lighting::calculateFlareIntensity(float camX, float camY, float camZ,
     float dot = toSunX * lookX + toSunY * lookY + toSunZ * lookZ;
     
     // Flare is strongest when looking directly at sun (dot = 1)
-    // Start showing flare when dot > 0.85 (about 30 degrees from sun)
-    if (dot < 0.85f) {
+    // Sunset flares are more prominent - start showing earlier
+    if (dot < 0.80f) {
         return 0.0f;
     }
     
-    // Map 0.85-1.0 to 0-1 intensity, with exponential falloff
-    float normalizedAngle = (dot - 0.85f) / 0.15f;
-    float flare = normalizedAngle * normalizedAngle * sunIntensity;
+    // Map 0.80-1.0 to 0-1 intensity, with exponential falloff
+    // Sunset flares are warmer and more dramatic
+    float normalizedAngle = (dot - 0.80f) / 0.20f;
+    float flare = normalizedAngle * normalizedAngle * sunIntensity * 1.2f;
     
     return std::min(1.0f, flare);
 }

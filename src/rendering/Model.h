@@ -49,11 +49,11 @@ struct AABB {
         float closestY = (sy < minY) ? minY : (sy > maxY) ? maxY : sy;
         float closestZ = (sz < minZ) ? minZ : (sz > maxZ) ? maxZ : sz;
         
-        // Check if that point is within radius
+        // Check if that point is within radius (use <= for inclusive check)
         float dx = sx - closestX;
         float dy = sy - closestY;
         float dz = sz - closestZ;
-        return (dx*dx + dy*dy + dz*dz) < (radius * radius);
+        return (dx*dx + dy*dy + dz*dz) <= (radius * radius);
     }
     
     // Expand to include another AABB

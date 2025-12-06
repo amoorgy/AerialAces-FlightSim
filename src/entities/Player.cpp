@@ -1,6 +1,7 @@
 #include "Player.h"
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -19,13 +20,13 @@ Player::Player()
     : x(0), y(80), z(0),  // Start high up
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
-      speed(1.5f),           // Increased from 0.8f
-      maxSpeed(5.0f),        // Increased from 2.5f
-      minSpeed(0.6f),        // Increased from 0.3f
-      acceleration(0.8f),    // Increased from 0.5f
+      speed(1.5f),           // Faster default speed
+      maxSpeed(4.0f),        // Higher max speed
+      minSpeed(0.5f),        // Minimum speed
+      acceleration(0.7f),    // Good acceleration
       pitchSpeed(60.0f),
-      yawSpeed(50.0f),
-      rollSpeed(90.0f),
+      yawSpeed(80.0f),       // Faster yaw for easier turning
+      rollSpeed(120.0f),     // Faster roll for easier turning
       gravity(9.8f),
       lift(0),
       boundingRadius(3.0f),
@@ -41,13 +42,13 @@ Player::Player(float startX, float startY, float startZ)
     : x(startX), y(startY), z(startZ),
       pitch(0), yaw(0), roll(0),
       velocityX(0), velocityY(0), velocityZ(0),
-      speed(1.5f),           // Increased from 0.8f
-      maxSpeed(5.0f),        // Increased from 2.5f
-      minSpeed(0.6f),        // Increased from 0.3f
-      acceleration(0.8f),    // Increased from 0.5f
+      speed(1.5f),           // Faster default speed
+      maxSpeed(4.0f),        // Higher max speed
+      minSpeed(0.5f),        // Minimum speed
+      acceleration(0.7f),    // Good acceleration
       pitchSpeed(60.0f),
-      yawSpeed(50.0f),
-      rollSpeed(90.0f),
+      yawSpeed(80.0f),       // Faster yaw for easier turning
+      rollSpeed(120.0f),     // Faster roll for easier turning
       gravity(9.8f),
       lift(0),
       boundingRadius(3.0f),
@@ -83,9 +84,19 @@ bool Player::loadModel(const std::string& modelPath, float scale) {
         aircraftModel->getBounds(minX, maxX, minY, maxY, minZ, maxZ);
         float sizeX = maxX - minX;
         float sizeZ = maxZ - minZ;
-        boundingRadius = std::max(sizeX, sizeZ) / 2.0f;
+        float sizeY = maxY - minY;
+        
+        // Use the largest dimension to ensure full coverage
+        float maxSize = std::max({sizeX, sizeY, sizeZ});
+        boundingRadius = maxSize / 2.0f;
+        
+        // Ensure minimum radius for collision detection reliability
+        if (boundingRadius < 3.0f) {
+            boundingRadius = 3.0f;
+        }
         
         std::cout << "Player: Aircraft model loaded successfully!" << std::endl;
+        std::cout << "Player: Model size: " << sizeX << " x " << sizeY << " x " << sizeZ << std::endl;
         std::cout << "Player: Bounding radius set to " << boundingRadius << std::endl;
         return true;
     } else {
@@ -167,28 +178,28 @@ void Player::update(float deltaTime, const bool* keys) {
 void Player::applyInput(const bool* keys, float deltaTime) {
     if (!alive) return;
     
-    // Pitch control (W/S)
+    // Pitch control (W/S) - Inverted flight style: W = nose down, S = nose up
     if (keys['w'] || keys['W']) {
-        pitch += pitchSpeed * deltaTime;
+        pitch += pitchSpeed * deltaTime;  // W = nose down (dive)
     }
     if (keys['s'] || keys['S']) {
-        pitch -= pitchSpeed * deltaTime;
+        pitch -= pitchSpeed * deltaTime;  // S = nose up (climb)
     }
     
-    // Roll control (A/D)
+    // Roll control (A/D) - Normal: A = roll left, D = roll right
     if (keys['a'] || keys['A']) {
-        roll -= rollSpeed * deltaTime;
+        roll -= rollSpeed * deltaTime;    // A = roll left
     }
     if (keys['d'] || keys['D']) {
-        roll += rollSpeed * deltaTime;
+        roll += rollSpeed * deltaTime;    // D = roll right
     }
     
-    // Yaw control (Q/E)
+    // Yaw control (Q/E) - Normal: Q = turn left, E = turn right
     if (keys['q'] || keys['Q']) {
-        yaw -= yawSpeed * deltaTime;
+        yaw -= yawSpeed * deltaTime;      // Q = turn left
     }
     if (keys['e'] || keys['E']) {
-        yaw += yawSpeed * deltaTime;
+        yaw += yawSpeed * deltaTime;      // E = turn right
     }
     
     // Speed control (1/2)
@@ -232,11 +243,9 @@ void Player::render() const {
         if (!lightingEnabled) glEnable(GL_LIGHTING);
         
         // Correct model orientation for Japanese WWII plane
-        // The model needs to face the direction of travel (forward = +Z when yaw=0)
-        // Trying: First rotate to stand upright, then face forward
-        glRotatef(90.0f, 1.0f, 0.0f, 0.0f);    // Rotate around X - stand model upright
-        glRotatef(0.0f, 0.0f, 1.0f, 0.0f);     // No Z rotation
-        glRotatef(0.0f, 0.0f, 0.0f, 1.0f);     // No additional rotation
+        // Camera is behind the plane, plane nose should point FORWARD (away from camera)
+        glRotatef(-90.0f, 0.0f, 1.0f, 0.0f);   // Rotate to face away from camera
+        glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);   // Stand model upright
         
         aircraftModel->render();
         
@@ -311,7 +320,7 @@ void Player::reset(float startX, float startY, float startZ, float startYaw) {
     yaw = startYaw;
     roll = 0;
     velocityX = velocityY = velocityZ = 0;
-    speed = 1.5f;
+    speed = 1.5f;  // Match default speed
     alive = true;
     barrelRolling = false;
     barrelRollAngle = 0;

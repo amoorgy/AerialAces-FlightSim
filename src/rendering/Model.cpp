@@ -250,6 +250,7 @@ bool Model::sphereTriangleIntersect(float sx, float sy, float sz, float radius, 
     float dz = sz - closestZ;
     float distSq = dx*dx + dy*dy + dz*dz;
     
+    // Use <= for inclusive check to catch edge cases
     return distSq <= (radius * radius);
 }
 

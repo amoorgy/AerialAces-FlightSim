@@ -221,12 +221,22 @@ bool Obstacle::checkModelCollision(float px, float py, float pz, float radius) c
     float localZ = pz - z;
     
     // The terrain is rendered with glRotatef(-90, 1, 0, 0) which rotates around X axis
-    // This transforms model space: (mx, my, mz) -> (mx, -mz, my) in world space
-    // So to go from world to model: (wx, wy, wz) -> (wx, wz, -wy)
+    // Rotation matrix for -90° around X:
+    //   [1,  0,   0 ]   [mx]   [ mx ]
+    //   [0,  0,   1 ] * [my] = [ mz ]   (model Y -> world Z)
+    //   [0, -1,   0 ]   [mz]   [-my ]   (model Z -> world -Y)
+    //
+    // So model coords (mx, my, mz) appear at world (mx, mz, -my)
+    //
+    // INVERSE (world to model):
+    //   [1,  0,  0]   [wx]   [ wx ]
+    //   [0,  0, -1] * [wy] = [-wz ]   (world Z -> model -Y)
+    //   [0,  1,  0]   [wz]   [ wy ]   (world Y -> model Z)
+    
     if (type == ObstacleType::GROUND) {
         float modelX = localX;
-        float modelY = localZ;      // World Z becomes model Y
-        float modelZ = -localY;     // World Y becomes negative model Z
+        float modelY = -localZ;     // World Z becomes negative model Y
+        float modelZ = localY;      // World Y becomes model Z
         localX = modelX;
         localY = modelY;
         localZ = modelZ;

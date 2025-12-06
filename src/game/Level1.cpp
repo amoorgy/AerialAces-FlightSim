@@ -127,38 +127,45 @@ void Level1::createRings() {
     }
     rings.clear();
     
-    // Create rings at various positions
-    // Ring at user-specified position
-    rings.push_back(new Collectible(5.68f, 82.23f, -81.31f));    // Ring 1 - user specified
+    // Create 8 rings along the flight path from start toward the final ring
+    // Player starts at (26.5, 64.6, 361.3) facing yaw=189 (roughly toward negative Z)
+    // Final ring is at (1.73, 127.72, -109.42)
     
-    // Additional rings along flight path
-    rings.push_back(new Collectible(0, 60, 50));       // Ring 2
-    rings.push_back(new Collectible(30, 65, 100));     // Ring 3
-    rings.push_back(new Collectible(-25, 55, 150));    // Ring 4
-    rings.push_back(new Collectible(15, 70, 200));     // Ring 5
-    rings.push_back(new Collectible(-35, 60, 250));    // Ring 6
-    rings.push_back(new Collectible(20, 75, 300));     // Ring 7
-    rings.push_back(new Collectible(-10, 65, 350));    // Ring 8
-    rings.push_back(new Collectible(0, 70, 400));      // Ring 9
+    // Rings along trajectory toward final ring (spreading from Z=361 down to Z=-109)
+    rings.push_back(new Collectible(20.0f, 65.0f, 300.0f));      // Ring 1 - near start
+    rings.push_back(new Collectible(15.0f, 70.0f, 220.0f));      // Ring 2
+    rings.push_back(new Collectible(10.0f, 68.0f, 140.0f));      // Ring 3
+    rings.push_back(new Collectible(-26.1736f, 56.2772f, 80.5068f));  // Ring 4 - debug pos 3
+    rings.push_back(new Collectible(11.2544f, 75.3101f, -28.5208f)); // Ring 5 - debug pos 2
+    rings.push_back(new Collectible(5.0f, 95.0f, -60.0f));       // Ring 6 - climbing toward final
+    rings.push_back(new Collectible(5.68f, 82.23f, -81.31f));    // Ring 7 - original user pos
+    rings.push_back(new Collectible(1.73182f, 127.721f, -109.424f)); // Ring 8 - FINAL (must collect to win)
     
-    totalRings = rings.size();
+    totalRings = rings.size();  // 8 rings
     
     // Load ring models
     std::string ringModelPath = findAssetPath("assets/rings/Engagement Ring.obj");
     std::string ringTexturePath = findAssetPath("assets/rings/Engagement Ring.jpg");
     
     for (size_t i = 0; i < rings.size(); i++) {
-        if (i % 2 == 0) {
+        // Alternate colors - final ring is special
+        if (i == rings.size() - 1) {
+            // Final ring - special bright gold (MUST collect this one)
+            rings[i]->setColor(1.0f, 0.9f, 0.2f);
+            rings[i]->setPointValue(500);  // Bonus for final
+        } else if (i % 2 == 0) {
             rings[i]->setColor(1.0f, 0.85f, 0.0f);   // Gold
+            rings[i]->setPointValue(100 + (i * 25));
         } else {
             rings[i]->setColor(0.0f, 0.9f, 1.0f);    // Cyan
+            rings[i]->setPointValue(100 + (i * 25));
         }
-        rings[i]->setPointValue(100 + (i * 25));
         rings[i]->setBonusTime(bonusTimePerRing);
         rings[i]->loadModel(ringModelPath, ringTexturePath, 0.06f);
     }
     
     std::cout << "Created " << totalRings << " rings along flight path" << std::endl;
+    std::cout << "Win condition: Collect any 4 rings INCLUDING the FINAL ring!" << std::endl;
 }
 
 void Level1::loadModels() {
@@ -245,11 +252,12 @@ void Level1::update(float deltaTime, const bool* keys) {
         }
     }
     
-    // Check win condition
-    if (ringsCollected >= totalRings) {
+    // Check win condition - must collect the FINAL ring (last ring) + at least 4 total
+    bool finalRingCollected = rings.size() > 0 && rings[rings.size() - 1]->isCollected();
+    if (finalRingCollected && ringsCollected >= 4) {
         state = Level1State::WON;
         timer.stop();
-        std::cout << "\n*** VICTORY! All rings collected! ***" << std::endl;
+        std::cout << "\n*** VICTORY! Final ring collected! ***" << std::endl;
         std::cout << "Final Score: " << score << std::endl;
     }
     
@@ -302,7 +310,8 @@ void Level1::checkCollisions() {
             float dz = pz - ring->getZ();
             float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
             
-            float collectRadius = pr + ring->getRadius() + 8.0f;
+            // Smaller hitbox - must fly closer to collect
+            float collectRadius = pr + ring->getRadius() + 3.0f;
             
             if (dist < collectRadius) {
                 ring->collect();
@@ -321,11 +330,61 @@ void Level1::checkCollisions() {
         return;
     }
     
-    // ========== TERRAIN CRASH DETECTION (BVH-based) ==========
+    // ========== TERRAIN CRASH DETECTION (BVH-based with swept collision) ==========
+    // Use a larger collision radius for more reliable detection
+    float collisionRadius = pr * 1.5f;  // 50% larger radius for safety margin
+    
+    // Calculate player velocity for swept collision
+    float radYaw = player->getYaw() * M_PI / 180.0f;
+    float radPitch = player->getPitch() * M_PI / 180.0f;
+    float speed = player->getSpeed();
+    
+    float velX = std::sin(radYaw) * std::cos(radPitch) * speed;
+    float velY = -std::sin(radPitch) * speed;
+    float velZ = std::cos(radYaw) * std::cos(radPitch) * speed;
+    
+    // Calculate how far we moved this frame
+    float moveDistance = std::sqrt(velX*velX + velY*velY + velZ*velZ);
+    
+    // Determine number of sweep samples based on movement distance
+    // Check at least every half-radius along the movement path
+    int numSamples = std::max(1, (int)(moveDistance / (collisionRadius * 0.5f)) + 1);
+    numSamples = std::min(numSamples, 10);  // Cap at 10 samples for performance
+    
     for (auto* obstacle : obstacles) {
         if (obstacle->hasModel()) {
-            if (obstacle->checkModelCollision(px, py, pz, pr)) {
-                std::cout << "COLLISION at (" << px << ", " << py << ", " << pz << ")" << std::endl;
+            // Check current position
+            if (obstacle->checkModelCollision(px, py, pz, collisionRadius)) {
+                std::cout << "COLLISION at current position (" << px << ", " << py << ", " << pz << ")" << std::endl;
+                triggerCrash(px, py, pz);
+                return;
+            }
+            
+            // Swept collision: check positions along the movement path
+            // This prevents tunneling through thin geometry
+            if (numSamples > 1) {
+                for (int i = 1; i <= numSamples; i++) {
+                    float t = (float)i / (float)numSamples;
+                    // Check positions slightly ahead (in direction of movement)
+                    float checkX = px + velX * t * 0.5f;  // Check half-step ahead
+                    float checkY = py + velY * t * 0.5f;
+                    float checkZ = pz + velZ * t * 0.5f;
+                    
+                    if (obstacle->checkModelCollision(checkX, checkY, checkZ, collisionRadius)) {
+                        std::cout << "SWEPT COLLISION detected at sample " << i << "/" << numSamples << std::endl;
+                        std::cout << "  Position: (" << checkX << ", " << checkY << ", " << checkZ << ")" << std::endl;
+                        triggerCrash(px, py, pz);
+                        return;
+                    }
+                }
+            }
+            
+            // Also check behind (in case we just passed through something)
+            float behindX = px - velX * 0.5f;
+            float behindY = py - velY * 0.5f;
+            float behindZ = pz - velZ * 0.5f;
+            if (obstacle->checkModelCollision(behindX, behindY, behindZ, collisionRadius)) {
+                std::cout << "COLLISION detected behind player (tunneling prevention)" << std::endl;
                 triggerCrash(px, py, pz);
                 return;
             }
@@ -490,25 +549,21 @@ void Level1::render() {
 }
 
 void Level1::renderSky() {
-    // Simple sky sphere
+    // Perpetual sunset sky
     glDisable(GL_LIGHTING);
     
-    // Sky color based on time of day
     float intensity = lighting->getSunIntensity();
     
-    if (lighting->isNightMode()) {
-        // Night sky - dark blue
-        glColor3f(0.02f, 0.02f, 0.08f);
-    } else {
-        // Day sky - changes with sun position
-        // Dawn/dusk: orange/pink hues
-        // Noon: bright blue
-        float warmth = 1.0f - intensity;  // More warm colors when sun is low
-        float r = 0.4f * intensity + 0.3f * warmth + 0.1f;
-        float g = 0.6f * intensity + 0.2f * warmth + 0.15f;
-        float b = 0.95f * intensity + 0.3f * warmth + 0.05f;
-        glColor3f(r, g, b);
-    }
+    // Sunset sky gradient - warm oranges, pinks, and purples
+    // Never dark, always beautiful sunset colors
+    float warmth = 1.0f - intensity;  // More warm colors when sun is lower
+    
+    // Base sky color - gradient from warm sunset
+    float r = 0.6f + warmth * 0.3f;   // Orange-red: 0.6 to 0.9
+    float g = 0.4f + warmth * 0.1f;   // Less green: 0.4 to 0.5
+    float b = 0.5f - warmth * 0.2f;   // Purple-blue: 0.5 to 0.3
+    
+    glColor3f(r, g, b);
     
     // Sky dome follows player
     glPushMatrix();
@@ -516,7 +571,7 @@ void Level1::renderSky() {
     glutSolidSphere(800.0, 24, 24);
     glPopMatrix();
     
-    // Draw sun/moon
+    // Draw sun - large, warm sunset sun
     float sunX = lighting->getSunX();
     float sunY = lighting->getSunY();
     float sunZ = lighting->getSunZ();
@@ -525,25 +580,23 @@ void Level1::renderSky() {
     glPushMatrix();
     glTranslatef(player->getX() + sunX * 0.8f, sunY, player->getZ() + sunZ);
     
-    if (lighting->isNightMode()) {
-        // Moon
-        glColor3f(0.9f, 0.9f, 0.85f);
-        glutSolidSphere(25.0, 16, 16);
-    } else {
-        // Sun - bright yellow/white core with glow
-        float sunIntensity = lighting->getSunIntensity();
-        
-        // Sun glow (larger, semi-transparent)
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-        glColor4f(1.0f, 0.95f, 0.7f, 0.3f * sunIntensity);
-        glutSolidSphere(50.0, 16, 16);
-        
-        // Sun core
-        glColor4f(1.0f, 1.0f, 0.9f, sunIntensity);
-        glutSolidSphere(30.0, 16, 16);
-        glDisable(GL_BLEND);
-    }
+    // Sunset sun - large orange/red glow
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    
+    // Outer glow - very large, soft orange
+    glColor4f(1.0f, 0.5f + warmth * 0.2f, 0.2f, 0.15f * intensity);
+    glutSolidSphere(80.0, 16, 16);
+    
+    // Middle glow - orange-yellow
+    glColor4f(1.0f, 0.7f, 0.3f, 0.25f * intensity);
+    glutSolidSphere(50.0, 16, 16);
+    
+    // Sun core - bright yellow-white
+    glColor4f(1.0f, 0.95f, 0.7f, intensity);
+    glutSolidSphere(30.0, 16, 16);
+    
+    glDisable(GL_BLEND);
     glPopMatrix();
     
     glEnable(GL_LIGHTING);
@@ -790,7 +843,7 @@ void Level1::renderMessages() {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);  // White color - fixed
+        glColor3f(1.0f, 1.0f, 1.0f);  // White color
         if (timer.isExpired()) {
             sprintf(buffer, "Time ran out!");
         } else {
