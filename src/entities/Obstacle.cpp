@@ -176,11 +176,56 @@ void Obstacle::render() const {
                 }
                 break;
             
-            case ObstacleType::BUILDING:
-                glTranslatef(x, y + height / 2.0f, z);
-                glScalef(width, height, depth);
-                glutSolidCube(1.0);
+            case ObstacleType::BUILDING: {
+                // Render HUGE VISIBLE LIGHTHOUSE with bright colors and lights
+                glTranslatef(x, y, z);
+                
+                // Enable lighting for the lighthouse structure
+                GLboolean wasLit = glIsEnabled(GL_LIGHTING);
+                glEnable(GL_LIGHTING);
+                
+                // Main tower - WHITE with RED stripes (classic lighthouse)
+                GLfloat matWhite[] = {1.0f, 1.0f, 1.0f, 1.0f};
+                GLfloat matRed[] = {1.0f, 0.1f, 0.1f, 1.0f};
+                GLfloat matSpecular[] = {0.8f, 0.8f, 0.8f, 1.0f};
+                GLfloat matShine[] = {32.0f};
+                
+                glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, matSpecular);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, matShine);
+                
+                // Draw 3 alternating white/red sections
+                for (int section = 0; section < 3; section++) {
+                    glPushMatrix();
+                    glTranslatef(0, section * height / 3.0f, 0);
+                    
+                    if (section % 2 == 0) {
+                        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, matWhite);
+                    } else {
+                        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, matRed);
+                    }
+                    
+                    glutSolidCylinder(width / 2.0f, height / 3.0f, 20, 8);
+                    glPopMatrix();
+                }
+                
+                // Top dome/light housing - BRIGHT YELLOW (glowing)
+                GLfloat matYellow[] = {1.0f, 1.0f, 0.3f, 1.0f};
+                GLfloat matEmissive[] = {0.5f, 0.5f, 0.2f, 1.0f};  // Makes it glow!
+                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, matYellow);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, matEmissive);
+                
+                glPushMatrix();
+                glTranslatef(0, height, 0);
+                glutSolidSphere(width * 0.7f, 16, 16);  // Big glowing sphere
+                glPopMatrix();
+                
+                // Reset emission so it doesn't affect other objects
+                GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
+                glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
+                
+                if (!wasLit) glDisable(GL_LIGHTING);
                 break;
+            }
             
             case ObstacleType::ROCK:
                 glTranslatef(x, y + height / 2.0f, z);
@@ -221,7 +266,7 @@ bool Obstacle::checkModelCollision(float px, float py, float pz, float radius) c
     float localZ = pz - z;
     
     // The terrain is rendered with glRotatef(-90, 1, 0, 0) which rotates around X axis
-    // Rotation matrix for -90° around X:
+    // Rotation matrix for -90ï¿½ around X:
     //   [1,  0,   0 ]   [mx]   [ mx ]
     //   [0,  0,   1 ] * [my] = [ mz ]   (model Y -> world Z)
     //   [0, -1,   0 ]   [mz]   [-my ]   (model Z -> world -Y)

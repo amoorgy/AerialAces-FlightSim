@@ -33,6 +33,7 @@ Player::Player()
       barrelRolling(false),
       barrelRollAngle(0),
       barrelRollSpeed(360.0f),
+      spacePressed(false),
       alive(true),
       aircraftModel(nullptr),
       useModel(false) {
@@ -55,6 +56,7 @@ Player::Player(float startX, float startY, float startZ)
       barrelRolling(false),
       barrelRollAngle(0),
       barrelRollSpeed(360.0f),
+      spacePressed(false),
       alive(true),
       aircraftModel(nullptr),
       useModel(false) {
@@ -212,12 +214,17 @@ void Player::applyInput(const bool* keys, float deltaTime) {
         if (speed > maxSpeed) speed = maxSpeed;
     }
     
-    // Barrel roll (Space or B)
-    if ((keys[' '] || keys['b'] || keys['B']) && !barrelRolling) {
-        int direction = (roll >= 0) ? 1 : -1;
-        if (keys['a'] || keys['A']) direction = -1;
-        if (keys['d'] || keys['D']) direction = 1;
-        startBarrelRoll(direction);
+    // Barrel roll (Space or B) - only trigger on key press, not hold
+    if (keys[' '] || keys['b'] || keys['B']) {
+        if (!spacePressed && !barrelRolling) {
+            int direction = (roll >= 0) ? 1 : -1;
+            if (keys['a'] || keys['A']) direction = -1;
+            if (keys['d'] || keys['D']) direction = 1;
+            startBarrelRoll(direction);
+        }
+        spacePressed = true;
+    } else {
+        spacePressed = false;
     }
 }
 

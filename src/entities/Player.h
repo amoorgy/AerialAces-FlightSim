@@ -45,6 +45,7 @@ private:
     bool barrelRolling;
     float barrelRollAngle;
     float barrelRollSpeed;
+    bool spacePressed;  // Track space key state to prevent multiple barrel rolls
     
     // State
     bool alive;
