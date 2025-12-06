@@ -925,6 +925,14 @@ void Level1::renderMessages() {
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
+        
+        // Next level prompt
+        glColor3f(0.2f, 1.0f, 1.0f);  // Cyan color
+        sprintf(buffer, "Press L to continue to Level 2");
+        glRasterPos2f(480, 260);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
     } else if (state == Level1State::LOST) {
         // Game over message
         glColor3f(1.0f, 0.2f, 0.2f);

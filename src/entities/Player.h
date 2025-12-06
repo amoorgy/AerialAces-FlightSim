@@ -118,13 +118,37 @@ public:
     float getY() const { return y; }
     float getZ() const { return z; }
     
+    /**
+     * Get position (all components)
+     */
+    void getPosition(float& outX, float& outY, float& outZ) const {
+        outX = x;
+        outY = y;
+        outZ = z;
+    }
+    
     // Getters for rotation
     float getPitch() const { return pitch; }
     float getYaw() const { return yaw; }
     float getRoll() const { return roll; }
     
+    /**
+     * Get rotation (all components)
+     */
+    void getRotation(float& outPitch, float& outYaw, float& outRoll) const {
+        outPitch = pitch;
+        outYaw = yaw;
+        outRoll = roll;
+    }
+    
+    /**
+     * Get forward direction vector
+     */
+    void getForwardVector(float& outX, float& outY, float& outZ) const;
+    
     // Getter for collision
     float getRadius() const { return boundingRadius; }
+    float getBoundingRadius() const { return boundingRadius; }
     
     // Getter for speed
     float getSpeed() const { return speed; }

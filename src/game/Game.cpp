@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "Level1.h"
+#include "Level2.h"
 #include <iostream>
 #include <cstdlib>
 
@@ -43,11 +44,13 @@ void Game::init() {
     std::cout << "  G      : Print Debug Position" << std::endl;
     std::cout << "  R      : Restart Level" << std::endl;
     std::cout << "  P      : Pause" << std::endl;
+    std::cout << "  L      : Next Level (when Level 1 complete)" << std::endl;
     std::cout << "  ESC    : Quit" << std::endl;
     std::cout << std::endl;
     std::cout << "Mouse:" << std::endl;
     std::cout << "  Left-click + drag : Orbit camera (3rd person)" << std::endl;
     std::cout << "  Right-click       : Toggle camera view" << std::endl;
+    std::cout << "  Left-click        : Fire Missile (Level 2, when locked)" << std::endl;
     std::cout << std::endl;
     
     // OpenGL initialization
@@ -96,10 +99,32 @@ void Game::update(float dt) {
         
         // Check for level completion
         if (currentLevel->isWon()) {
+            state = GameState::LEVEL_COMPLETE;
             std::cout << "Level " << currentLevelIndex << " complete!" << std::endl;
-            // Could transition to next level here
-            // For now, just stay on win screen
+            std::cout << "Press 'L' to continue to next level..." << std::endl;
         }
+        
+        // Check for level loss
+        if (currentLevel->isLost()) {
+            state = GameState::GAME_OVER;
+            std::cout << "Game Over! Press 'R' to restart level." << std::endl;
+        }
+    }
+    
+    // Handle level transition input
+    if (state == GameState::LEVEL_COMPLETE && (input.isKeyPressed('l') || input.isKeyPressed('L'))) {
+        std::cout << "L key detected! Loading next level..." << std::endl;
+        if (currentLevelIndex < MAX_LEVELS) {
+            loadLevel(currentLevelIndex + 1);
+        } else {
+            std::cout << "Congratulations! You've completed all levels!" << std::endl;
+            state = GameState::GAME_OVER;
+        }
+    }
+    
+    // Handle restart on game over
+    if (state == GameState::GAME_OVER && (input.isKeyPressed('r') || input.isKeyPressed('R'))) {
+        loadLevel(currentLevelIndex);
     }
 }
 
@@ -242,15 +267,15 @@ void Game::loadLevel(int levelIndex) {
     
     switch (levelIndex) {
         case 1:
+            std::cout << "Loading Level 1: Terrain Navigation..." << std::endl;
             currentLevel = new Level1();
             break;
         case 2:
-            // Level 2 would go here
-            std::cout << "Level 2 not yet implemented" << std::endl;
-            currentLevel = new Level1();  // Fallback to Level 1
+            std::cout << "Loading Level 2: Aerial Combat..." << std::endl;
+            currentLevel = new Level2();
             break;
         default:
-            std::cout << "Invalid level index: " << levelIndex << std::endl;
+            std::cout << "Invalid level index: " << levelIndex << ", loading Level 1" << std::endl;
             currentLevel = new Level1();
             break;
     }

@@ -17,6 +17,7 @@ Obstacle::Obstacle()
       type(ObstacleType::GROUND),
       colorR(0.4f), colorG(0.5f), colorB(0.3f),
       baseRadius(50.0f),
+      active(true),
       obstacleModel(nullptr),
       useModel(false) {
 }
@@ -29,6 +30,7 @@ Obstacle::Obstacle(float posX, float posY, float posZ,
       type(obstacleType),
       colorR(0.4f), colorG(0.5f), colorB(0.3f),
       baseRadius(w / 2.0f),
+      active(true),
       obstacleModel(nullptr),
       useModel(false) {
     
@@ -93,6 +95,9 @@ bool Obstacle::loadModel(const std::string& modelPath, float scale) {
 }
 
 void Obstacle::render() const {
+    // Don't render if inactive (destroyed)
+    if (!active) return;
+    
     glPushMatrix();
     
     // Use 3D model if loaded, otherwise use primitives

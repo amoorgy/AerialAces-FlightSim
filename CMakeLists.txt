@@ -63,9 +63,12 @@ set(SOURCES
     src/main.cpp
     src/game/Game.cpp
     src/game/Level1.cpp
+    src/game/Level2.cpp
     src/entities/Player.cpp
     src/entities/Collectible.cpp
     src/entities/Obstacle.cpp
+    src/entities/Enemy.cpp
+    src/entities/Missile.cpp
     src/rendering/Camera.cpp
     src/rendering/Lighting.cpp
     src/rendering/Model.cpp
@@ -80,9 +83,12 @@ set(HEADERS
     src/game/Game.h
     src/game/Level.h
     src/game/Level1.h
+    src/game/Level2.h
     src/entities/Player.h
     src/entities/Collectible.h
     src/entities/Obstacle.h
+    src/entities/Enemy.h
+    src/entities/Missile.h
     src/rendering/Camera.h
     src/rendering/Lighting.h
     src/rendering/Model.h

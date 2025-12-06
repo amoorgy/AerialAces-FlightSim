@@ -358,3 +358,12 @@ void Player::kill() {
 bool Player::isAlive() const {
     return alive;
 }
+
+void Player::getForwardVector(float& outX, float& outY, float& outZ) const {
+    float radYaw = yaw * M_PI / 180.0f;
+    float radPitch = pitch * M_PI / 180.0f;
+    
+    outX = std::sin(radYaw) * std::cos(radPitch);
+    outY = -std::sin(radPitch);
+    outZ = std::cos(radYaw) * std::cos(radPitch);
+}

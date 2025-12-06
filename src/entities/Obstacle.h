@@ -41,6 +41,9 @@ private:
     // For mountains specifically
     float baseRadius;  // Base radius of cone
     
+    // State
+    bool active;  // For destroyable obstacles in Level 2
+    
     // 3D Model support
     Model* obstacleModel;
     bool useModel;  // Flag to use model vs primitives
@@ -117,6 +120,21 @@ public:
      * Check if model is loaded
      */
     bool hasModel() const { return useModel && obstacleModel != nullptr; }
+    
+    /**
+     * Check if obstacle is active (for destroyable targets in Level 2)
+     */
+    bool isActive() const { return active; }
+    
+    /**
+     * Deactivate obstacle (mark as destroyed)
+     */
+    void deactivate() { active = false; }
+    
+    /**
+     * Activate obstacle
+     */
+    void activate() { active = true; }
 };
 
 #endif // OBSTACLE_H
