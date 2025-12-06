@@ -1,0 +1,36 @@
+# 
+# Wavefront material file
+# Converted by the DEEP Exploration  3.5.0.448
+# Right Hemisphere, LTD
+# http://www.righthemisphere.com/
+# 
+
+newmtl _2_Steel
+Ka 0.207843 0.207843 0.207843
+Kd 0.580392 0.580392 0.580392
+Ks 1 1 1
+illum 2
+Ns 128
+
+newmtl _2_Aluminum
+Ka 0.47451 0.47451 0.47451
+Kd 0.898039 0.898039 0.898039
+Ks 1 1 1
+illum 2
+Ns 128
+
+newmtl _2_Body
+Ka 0.0666667 0.0666667 0.0666667
+Kd 0.431373 0.407843 0.286275
+Ks 0.647059 0.690196 0.588235
+illum 2
+Ns 6.06287
+map_Kd 82body.bmp
+
+newmtl _2_Tail
+Ka 0.0666667 0.0666667 0.0666667
+Kd 0.431373 0.407843 0.286275
+Ks 0.647059 0.690196 0.588235
+illum 2
+Ns 6.06287
+map_Kd 82tail.bmp

@@ -195,7 +195,7 @@ void Level1::loadModels() {
         std::cout << "\nLoading aircraft model..." << std::endl;
         std::string planePath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.obj");
         std::cout << "DEBUG: About to call player->loadModel()..." << std::endl;
-        bool success = player->loadModel(planePath, 0.25f);
+        bool success = player->loadModel(planePath, 0.35f);  // Larger plane (40% bigger)
         std::cout << "DEBUG: player->loadModel() returned: " << success << std::endl;
         if (!success) {
             std::cout << "Aircraft model not found, using primitive aircraft" << std::endl;
@@ -1132,27 +1132,27 @@ void Level1::createLighthouses() {
     std::string lighthousePath = findAssetPath("assets/lighthouse/obj/obj/lighthouse.obj");
     
     // Create 2 lighthouses at strategic positions along the flight path
-    // Lighthouse 1: Near starting area on cliff edge - LARGER AND MORE VISIBLE
-    Obstacle* lighthouse1 = new Obstacle(-50.0f, 0.0f, 250.0f, 15, 45, 15, ObstacleType::BUILDING);
-    if (lighthouse1->loadModel(lighthousePath, 3.5f)) {  // Bigger scale
+    // Lighthouse 1: On mountain peak - LARGER AND ON ELEVATED TERRAIN
+    Obstacle* lighthouse1 = new Obstacle(-50.0f, 95.0f, 250.0f, 15, 45, 15, ObstacleType::BUILDING);  // Elevated on mountain
+    if (lighthouse1->loadModel(lighthousePath, 4.0f)) {  // Even bigger scale
         lighthouses.push_back(lighthouse1);
-        std::cout << "Lighthouse 1 created at (-50, 0, 250) - SCALE 3.5x" << std::endl;
+        std::cout << "Lighthouse 1 created at (-50, 95, 250) on mountain peak - SCALE 4.0x" << std::endl;
     } else {
         delete lighthouse1;
         std::cout << "Lighthouse 1 model not found, using larger primitive cylinder" << std::endl;
-        lighthouse1 = new Obstacle(-50.0f, 0.0f, 250.0f, 15, 45, 15, ObstacleType::BUILDING);
+        lighthouse1 = new Obstacle(-50.0f, 95.0f, 250.0f, 15, 45, 15, ObstacleType::BUILDING);
         lighthouses.push_back(lighthouse1);
     }
     
-    // Lighthouse 2: Near middle of flight path on opposite side - LARGER AND MORE VISIBLE
-    Obstacle* lighthouse2 = new Obstacle(60.0f, 0.0f, 50.0f, 15, 45, 15, ObstacleType::BUILDING);
-    if (lighthouse2->loadModel(lighthousePath, 3.5f)) {  // Bigger scale
+    // Lighthouse 2: On another mountain peak - LARGER AND ON ELEVATED TERRAIN
+    Obstacle* lighthouse2 = new Obstacle(60.0f, 85.0f, 50.0f, 15, 45, 15, ObstacleType::BUILDING);  // Elevated on mountain
+    if (lighthouse2->loadModel(lighthousePath, 4.0f)) {  // Even bigger scale
         lighthouses.push_back(lighthouse2);
-        std::cout << "Lighthouse 2 created at (60, 0, 50) - SCALE 3.5x" << std::endl;
+        std::cout << "Lighthouse 2 created at (60, 85, 50) on mountain peak - SCALE 4.0x" << std::endl;
     } else {
         delete lighthouse2;
         std::cout << "Lighthouse 2 model not found, using larger primitive cylinder" << std::endl;
-        lighthouse2 = new Obstacle(60.0f, 0.0f, 50.0f, 15, 45, 15, ObstacleType::BUILDING);
+        lighthouse2 = new Obstacle(60.0f, 85.0f, 50.0f, 15, 45, 15, ObstacleType::BUILDING);
         lighthouses.push_back(lighthouse2);
     }
     
@@ -1174,49 +1174,49 @@ void Level1::renderLighthouses() {
     float angle1 = lighting->getLighthouseAngle();
     float angle2 = angle1 + 180.0f;  // Second lighthouse 180° out of phase
     
-    // Lighthouse 1 at (-50, 0, 250)
+    // Lighthouse 1 at (-50, 95, 250) on mountain
     float lh1X = -50.0f;
-    float lh1Y = 0.0f;
+    float lh1Y = 95.0f;  // On mountain peak
     float lh1Z = 250.0f;
     
-    // Lighthouse 2 at (60, 0, 50)
+    // Lighthouse 2 at (60, 85, 50) on mountain
     float lh2X = 60.0f;
-    float lh2Y = 0.0f;
+    float lh2Y = 85.0f;  // On mountain peak
     float lh2Z = 50.0f;
     
-    // Configure GL_LIGHT2 for lighthouse 1 beam - BRIGHTER AND MORE VISIBLE
+    // Configure GL_LIGHT2 for lighthouse 1 beam - MORE REALISTIC
     float rad1 = angle1 * M_PI / 180.0f;
-    GLfloat lh1Pos[] = {lh1X, lh1Y + 42.0f, lh1Z, 1.0f};  // Higher position for taller lighthouse
-    GLfloat lh1Dir[] = {std::sin(rad1), -0.3f, std::cos(rad1)};  // Beam direction
-    GLfloat lh1Diffuse[] = {1.5f, 1.4f, 1.2f, 1.0f};  // Brighter warm white light
-    GLfloat lh1Specular[] = {1.5f, 1.5f, 1.3f, 1.0f};
+    GLfloat lh1Pos[] = {lh1X, lh1Y + 48.0f, lh1Z, 1.0f};  // Top of taller lighthouse
+    GLfloat lh1Dir[] = {std::sin(rad1), -0.25f, std::cos(rad1)};  // Realistic beam angle
+    GLfloat lh1Diffuse[] = {2.0f, 1.9f, 1.6f, 1.0f};  // Bright warm lighthouse beam
+    GLfloat lh1Specular[] = {2.0f, 2.0f, 1.8f, 1.0f};  // Strong specular highlights
     
     glLightfv(GL_LIGHT2, GL_POSITION, lh1Pos);
     glLightfv(GL_LIGHT2, GL_SPOT_DIRECTION, lh1Dir);
     glLightfv(GL_LIGHT2, GL_DIFFUSE, lh1Diffuse);
     glLightfv(GL_LIGHT2, GL_SPECULAR, lh1Specular);
-    glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 30.0f);  // Wider beam for better visibility
-    glLightf(GL_LIGHT2, GL_SPOT_EXPONENT, 12.0f);  // Less focused for wider spread
-    glLightf(GL_LIGHT2, GL_CONSTANT_ATTENUATION, 0.8f);
-    glLightf(GL_LIGHT2, GL_LINEAR_ATTENUATION, 0.003f);
-    glLightf(GL_LIGHT2, GL_QUADRATIC_ATTENUATION, 0.00005f);
+    glLightf(GL_LIGHT2, GL_SPOT_CUTOFF, 25.0f);  // Focused searchlight beam
+    glLightf(GL_LIGHT2, GL_SPOT_EXPONENT, 20.0f);  // Sharp, concentrated beam
+    glLightf(GL_LIGHT2, GL_CONSTANT_ATTENUATION, 0.6f);
+    glLightf(GL_LIGHT2, GL_LINEAR_ATTENUATION, 0.002f);
+    glLightf(GL_LIGHT2, GL_QUADRATIC_ATTENUATION, 0.00003f);
     
-    // Configure GL_LIGHT3 for lighthouse 2 beam - BRIGHTER AND MORE VISIBLE
+    // Configure GL_LIGHT3 for lighthouse 2 beam - MORE REALISTIC
     float rad2 = angle2 * M_PI / 180.0f;
-    GLfloat lh2Pos[] = {lh2X, lh2Y + 42.0f, lh2Z, 1.0f};  // Higher position
-    GLfloat lh2Dir[] = {std::sin(rad2), -0.3f, std::cos(rad2)};
-    GLfloat lh2Diffuse[] = {1.3f, 1.5f, 1.4f, 1.0f};  // Brighter cool white
-    GLfloat lh2Specular[] = {1.3f, 1.5f, 1.5f, 1.0f};
+    GLfloat lh2Pos[] = {lh2X, lh2Y + 48.0f, lh2Z, 1.0f};  // Top of lighthouse
+    GLfloat lh2Dir[] = {std::sin(rad2), -0.25f, std::cos(rad2)};
+    GLfloat lh2Diffuse[] = {1.8f, 2.0f, 1.9f, 1.0f};  // Bright cool white beam
+    GLfloat lh2Specular[] = {1.8f, 2.0f, 2.0f, 1.0f};
     
     glLightfv(GL_LIGHT3, GL_POSITION, lh2Pos);
     glLightfv(GL_LIGHT3, GL_SPOT_DIRECTION, lh2Dir);
     glLightfv(GL_LIGHT3, GL_DIFFUSE, lh2Diffuse);
     glLightfv(GL_LIGHT3, GL_SPECULAR, lh2Specular);
-    glLightf(GL_LIGHT3, GL_SPOT_CUTOFF, 30.0f);  // Wider beam
-    glLightf(GL_LIGHT3, GL_SPOT_EXPONENT, 12.0f);  // Less focused
-    glLightf(GL_LIGHT3, GL_CONSTANT_ATTENUATION, 0.8f);
-    glLightf(GL_LIGHT3, GL_LINEAR_ATTENUATION, 0.003f);
-    glLightf(GL_LIGHT3, GL_QUADRATIC_ATTENUATION, 0.00005f);
+    glLightf(GL_LIGHT3, GL_SPOT_CUTOFF, 25.0f);  // Focused beam
+    glLightf(GL_LIGHT3, GL_SPOT_EXPONENT, 20.0f);  // Sharp concentration
+    glLightf(GL_LIGHT3, GL_CONSTANT_ATTENUATION, 0.6f);
+    glLightf(GL_LIGHT3, GL_LINEAR_ATTENUATION, 0.002f);
+    glLightf(GL_LIGHT3, GL_QUADRATIC_ATTENUATION, 0.00003f);
     
     // Render lighthouse structures
     for (auto* lighthouse : lighthouses) {
@@ -1229,36 +1229,36 @@ void Level1::renderLighthouses() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     glDepthMask(GL_FALSE);
     
-    // Lighthouse 1 beam visual - LARGER AND BRIGHTER
+    // Lighthouse 1 beam visual - REALISTIC SEARCHLIGHT CONE
     glPushMatrix();
-    glTranslatef(lh1X, lh1Y + 42.0f, lh1Z);  // Higher position
+    glTranslatef(lh1X, lh1Y + 48.0f, lh1Z);  // From top of lighthouse
     glRotatef(angle1, 0.0f, 1.0f, 0.0f);
-    glRotatef(-17.0f, 1.0f, 0.0f, 0.0f);  // Point downward
+    glRotatef(-14.0f, 1.0f, 0.0f, 0.0f);  // Slight downward angle
     
     glBegin(GL_TRIANGLE_FAN);
-    glColor4f(1.0f, 0.95f, 0.8f, 0.8f);  // Brighter at source
+    glColor4f(1.0f, 0.98f, 0.85f, 0.9f);  // Intense warm light at source
     glVertex3f(0.0f, 0.0f, 0.0f);
-    glColor4f(1.0f, 0.95f, 0.8f, 0.0f);  // Fade at edges
-    for (int i = 0; i <= 20; i++) {  // More segments for smoother beam
-        float a = (float)i / 20 * 2.0f * M_PI;
-        glVertex3f(std::sin(a) * 70.0f, 0.0f, std::cos(a) * 70.0f + 200.0f);  // Larger beam
+    glColor4f(1.0f, 0.95f, 0.8f, 0.0f);  // Fade to transparent
+    for (int i = 0; i <= 24; i++) {  // Smooth circular beam
+        float a = (float)i / 24 * 2.0f * M_PI;
+        glVertex3f(std::sin(a) * 60.0f, 0.0f, std::cos(a) * 60.0f + 250.0f);  // Long reaching beam
     }
     glEnd();
     glPopMatrix();
     
-    // Lighthouse 2 beam visual - LARGER AND BRIGHTER
+    // Lighthouse 2 beam visual - REALISTIC SEARCHLIGHT CONE
     glPushMatrix();
-    glTranslatef(lh2X, lh2Y + 42.0f, lh2Z);  // Higher position
+    glTranslatef(lh2X, lh2Y + 48.0f, lh2Z);  // From top of lighthouse
     glRotatef(angle2, 0.0f, 1.0f, 0.0f);
-    glRotatef(-17.0f, 1.0f, 0.0f, 0.0f);
+    glRotatef(-14.0f, 1.0f, 0.0f, 0.0f);  // Slight downward angle
     
     glBegin(GL_TRIANGLE_FAN);
-    glColor4f(0.9f, 1.0f, 0.95f, 0.8f);  // Brighter at source
+    glColor4f(0.9f, 0.98f, 1.0f, 0.9f);  // Intense cool white at source
     glVertex3f(0.0f, 0.0f, 0.0f);
-    glColor4f(0.9f, 1.0f, 0.95f, 0.0f);
-    for (int i = 0; i <= 20; i++) {  // More segments
-        float a = (float)i / 20 * 2.0f * M_PI;
-        glVertex3f(std::sin(a) * 70.0f, 0.0f, std::cos(a) * 70.0f + 200.0f);  // Larger beam
+    glColor4f(0.85f, 0.95f, 1.0f, 0.0f);  // Fade to transparent
+    for (int i = 0; i <= 24; i++) {  // Smooth circular beam
+        float a = (float)i / 24 * 2.0f * M_PI;
+        glVertex3f(std::sin(a) * 60.0f, 0.0f, std::cos(a) * 60.0f + 250.0f);  // Long reaching beam
     }
     glEnd();
     glPopMatrix();
