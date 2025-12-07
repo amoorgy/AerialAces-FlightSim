@@ -4,9 +4,15 @@
 #include <limits>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 
 Model::Model() : loaded(false), scaleFactor(1.0f), bvhRoot(nullptr),
-                 vboVertices(0), vboNormals(0), vboTexCoords(0), vboInitialized(false) {
+                 vboVertices(0), vboNormals(0), vboTexCoords(0), vboInitialized(false),
+                 texture(nullptr), hasTexture(false),
+                 heightmapResolution(0), heightmapMinX(0), heightmapMaxX(0),
+                 heightmapMinZ(0), heightmapMaxZ(0), heightmapCellSize(1.0f),
+                 heightmapBuilt(false) {
     for (int i = 0; i < 3; i++) {
         minBounds[i] = 0.0f;
         maxBounds[i] = 0.0f;
@@ -23,6 +29,93 @@ Model::~Model() {
     
     delete bvhRoot;
     bvhRoot = nullptr;
+    
+    if (texture) {
+        delete texture;
+        texture = nullptr;
+    }
+}
+
+bool Model::loadMaterialTexture(const std::string& mtlPath) {
+    std::ifstream file(mtlPath);
+    if (!file.is_open()) {
+        std::cout << "Could not open MTL file: " << mtlPath << std::endl;
+        return false;
+    }
+    
+    std::string line;
+    std::string textureFile;
+    
+    while (std::getline(file, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#') continue;
+        
+        // Look for map_Kd (diffuse texture) or map_Ka (ambient texture)
+        std::istringstream iss(line);
+        std::string prefix;
+        iss >> prefix;
+        
+        if (prefix == "map_Kd" || prefix == "map_Ka") {
+            iss >> textureFile;
+            if (!textureFile.empty()) {
+                break;  // Found a texture, use it
+            }
+        }
+    }
+    file.close();
+    
+    if (textureFile.empty()) {
+        std::cout << "No texture reference found in MTL file" << std::endl;
+        return false;
+    }
+    
+    // Build full texture path (texture file is usually in same directory as MTL)
+    std::string texturePath = basePath + textureFile;
+    
+    // Also try without base path (in case texture path is already relative to assets)
+    std::ifstream testFile(texturePath);
+    if (!testFile.good()) {
+        // Try just the texture filename in the same directory
+        texturePath = basePath + textureFile;
+        testFile.open(texturePath);
+        if (!testFile.good()) {
+            // Try various asset paths
+            const char* assetPaths[] = {
+                "",
+                "assets/",
+                "../",
+                "../../",
+                "../../../",
+                "../../../../",
+                "../../../../../",
+                nullptr
+            };
+            
+            for (int i = 0; assetPaths[i] != nullptr; i++) {
+                texturePath = std::string(assetPaths[i]) + basePath + textureFile;
+                testFile.open(texturePath);
+                if (testFile.good()) {
+                    testFile.close();
+                    break;
+                }
+            }
+        }
+    }
+    testFile.close();
+    
+    std::cout << "Loading texture: " << texturePath << std::endl;
+    
+    texture = new Texture();
+    if (texture->load(texturePath)) {
+        hasTexture = true;
+        std::cout << "Texture loaded successfully!" << std::endl;
+        return true;
+    } else {
+        delete texture;
+        texture = nullptr;
+        std::cout << "Failed to load texture: " << texturePath << std::endl;
+        return false;
+    }
 }
 
 bool Model::load(const std::string& filepath) {
@@ -52,6 +145,18 @@ bool Model::load(const std::string& filepath) {
     std::cout << "  Normals: " << attrib.normals.size() / 3 << std::endl;
     std::cout << "  Texcoords: " << attrib.texcoords.size() / 2 << std::endl;
     std::cout << "  Shapes: " << shapes.size() << std::endl;
+    
+    // Extract base path for texture loading
+    size_t lastSlash = filepath.find_last_of("/\\");
+    if (lastSlash != std::string::npos) {
+        basePath = filepath.substr(0, lastSlash + 1);
+    } else {
+        basePath = "";
+    }
+    
+    // Try to load texture from MTL file
+    std::string mtlPath = filepath.substr(0, filepath.find_last_of('.')) + ".mtl";
+    loadMaterialTexture(mtlPath);
     
     // Process all shapes and combine into single vertex buffer
     for (const auto& shape : shapes) {
@@ -112,9 +217,11 @@ bool Model::load(const std::string& filepath) {
     }
     
     calculateBounds();
+    
+    // Build heightmap for collision
+    buildHeightmap(256);  // 256x256 resolution
+    
     loaded = true;
-    // NOTE: VBOs will be initialized lazily on first render when OpenGL context is ready
-    // initVBOs();  // Can't call this here - OpenGL context not ready yet!
     
     std::cout << "Model loaded successfully!" << std::endl;
     std::cout << "  Final vertices: " << vertices.size() / 3 << std::endl;
@@ -300,6 +407,13 @@ void Model::render() const {
     glPushMatrix();
     glScalef(scaleFactor, scaleFactor, scaleFactor);
     
+    // Bind texture if available
+    bool textureEnabled = false;
+    if (hasTexture && texture && texture->isLoaded()) {
+        texture->bind();
+        textureEnabled = true;
+    }
+    
     // Initialize VBOs on first render if not already done
     if (!vboInitialized) {
         const_cast<Model*>(this)->initVBOs();
@@ -345,6 +459,11 @@ void Model::render() const {
         glEnd();
     }
     
+    // Unbind texture
+    if (textureEnabled) {
+        texture->unbind();
+    }
+    
     glPopMatrix();
 }
 
@@ -383,11 +502,9 @@ void Model::initVBOs() {
     glBindBuffer(GL_ARRAY_BUFFER, vboVertices);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
     
-    if (!normals.empty()) {
-        glGenBuffers(1, &vboNormals);
-        glBindBuffer(GL_ARRAY_BUFFER, vboNormals);
-        glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(float), normals.data(), GL_STATIC_DRAW);
-    }
+    glGenBuffers(1, &vboNormals);
+    glBindBuffer(GL_ARRAY_BUFFER, vboNormals);
+    glBufferData(GL_ARRAY_BUFFER, normals.size() * sizeof(float), normals.data(), GL_STATIC_DRAW);
     
     if (!texcoords.empty()) {
         glGenBuffers(1, &vboTexCoords);
@@ -417,38 +534,170 @@ void Model::cleanupVBOs() {
 }
 
 bool Model::getHeightAtPosition(float worldX, float worldZ, float modelX, float modelZ, float& outHeight) const {
-    if (!loaded || vertices.empty()) return false;
+    // This is a simplified height query - a proper implementation would ray cast
+    // For now, return false to indicate no height data available
+    return false;
+}
+
+void Model::buildHeightmap(int resolution) {
+    if (!loaded || vertices.empty()) {
+        heightmapBuilt = false;
+        return;
+    }
     
-    float localX = (worldX - modelX) / scaleFactor;
-    float localZ = (worldZ - modelZ) / scaleFactor;
+    heightmapResolution = resolution;
+    heightmap.resize(resolution * resolution, -99999.0f);  // Initialize to very low
     
-    float closestHeight = -999999.0f;
-    bool found = false;
+    // Use model bounds for heightmap extents
+    heightmapMinX = minBounds[0];
+    heightmapMaxX = maxBounds[0];
+    heightmapMinZ = minBounds[2];
+    heightmapMaxZ = maxBounds[2];
     
+    float rangeX = heightmapMaxX - heightmapMinX;
+    float rangeZ = heightmapMaxZ - heightmapMinZ;
+    heightmapCellSize = std::max(rangeX, rangeZ) / (resolution - 1);
+    
+    std::cout << "Building heightmap " << resolution << "x" << resolution << std::endl;
+    std::cout << "  X range: " << heightmapMinX << " to " << heightmapMaxX << std::endl;
+    std::cout << "  Z range: " << heightmapMinZ << " to " << heightmapMaxZ << std::endl;
+    
+    // For each triangle, rasterize it into the heightmap
     for (size_t i = 0; i + 8 < vertices.size(); i += 9) {
         float v0x = vertices[i+0], v0y = vertices[i+1], v0z = vertices[i+2];
         float v1x = vertices[i+3], v1y = vertices[i+4], v1z = vertices[i+5];
         float v2x = vertices[i+6], v2y = vertices[i+7], v2z = vertices[i+8];
         
-        float denom = (v1z - v2z) * (v0x - v2x) + (v2x - v1x) * (v0z - v2z);
-        if (std::abs(denom) < 0.0001f) continue;
+        // Find bounding box of triangle in grid coords
+        float triMinX = std::min({v0x, v1x, v2x});
+        float triMaxX = std::max({v0x, v1x, v2x});
+        float triMinZ = std::min({v0z, v1z, v2z});
+        float triMaxZ = std::max({v0z, v1z, v2z});
         
-        float a = ((v1z - v2z) * (localX - v2x) + (v2x - v1x) * (localZ - v2z)) / denom;
-        float b = ((v2z - v0z) * (localX - v2x) + (v0x - v2x) * (localZ - v2z)) / denom;
-        float c = 1.0f - a - b;
+        int gridMinX = std::max(0, (int)((triMinX - heightmapMinX) / heightmapCellSize));
+        int gridMaxX = std::min(resolution - 1, (int)((triMaxX - heightmapMinX) / heightmapCellSize) + 1);
+        int gridMinZ = std::max(0, (int)((triMinZ - heightmapMinZ) / heightmapCellSize));
+        int gridMaxZ = std::min(resolution - 1, (int)((triMaxZ - heightmapMinZ) / heightmapCellSize) + 1);
         
-        if (a >= -0.01f && a <= 1.01f && b >= -0.01f && b <= 1.01f && c >= -0.01f && c <= 1.01f) {
-            float height = a * v0y + b * v1y + c * v2y;
-            if (height > closestHeight) {
-                closestHeight = height;
-                found = true;
+        // Rasterize triangle
+        for (int gz = gridMinZ; gz <= gridMaxZ; gz++) {
+            for (int gx = gridMinX; gx <= gridMaxX; gx++) {
+                float worldX = heightmapMinX + gx * heightmapCellSize;
+                float worldZ = heightmapMinZ + gz * heightmapCellSize;
+                
+                // Barycentric coordinates to check if point is in triangle
+                float denom = (v1z - v2z) * (v0x - v2x) + (v2x - v1x) * (v0z - v2z);
+                if (std::abs(denom) < 0.0001f) continue;
+                
+                float a = ((v1z - v2z) * (worldX - v2x) + (v2x - v1x) * (worldZ - v2z)) / denom;
+                float b = ((v2z - v0z) * (worldX - v2x) + (v0x - v2x) * (worldZ - v2z)) / denom;
+                float c = 1.0f - a - b;
+                
+                // Check if inside triangle (with small tolerance)
+                if (a >= -0.01f && b >= -0.01f && c >= -0.01f) {
+                    float height = a * v0y + b * v1y + c * v2y;
+                    int idx = gz * resolution + gx;
+                    if (height > heightmap[idx]) {
+                        heightmap[idx] = height;
+                    }
+                }
             }
         }
     }
     
-    if (found) {
-        outHeight = closestHeight * scaleFactor + modelX;
-        return true;
+    // Fill holes by averaging neighbors (simple gap filling)
+    std::vector<float> smoothed = heightmap;
+    for (int z = 1; z < resolution - 1; z++) {
+        for (int x = 1; x < resolution - 1; x++) {
+            int idx = z * resolution + x;
+            if (heightmap[idx] < -99000.0f) {
+                float sum = 0;
+                int count = 0;
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        int nidx = (z + dz) * resolution + (x + dx);
+                        if (heightmap[nidx] > -99000.0f) {
+                            sum += heightmap[nidx];
+                            count++;
+                        }
+                    }
+                }
+                if (count > 0) {
+                    smoothed[idx] = sum / count;
+                }
+            }
+        }
     }
-    return false;
+    heightmap = smoothed;
+    
+    heightmapBuilt = true;
+    std::cout << "Heightmap built successfully!" << std::endl;
+}
+
+float Model::sampleHeightmapBilinear(float x, float z) const {
+    if (!heightmapBuilt) return -99999.0f;
+    
+    // Convert to grid coordinates
+    float gx = (x - heightmapMinX) / heightmapCellSize;
+    float gz = (z - heightmapMinZ) / heightmapCellSize;
+    
+    // Clamp to valid range
+    gx = std::max(0.0f, std::min(gx, (float)(heightmapResolution - 2)));
+    gz = std::max(0.0f, std::min(gz, (float)(heightmapResolution - 2)));
+    
+    int x0 = (int)gx;
+    int z0 = (int)gz;
+    int x1 = x0 + 1;
+    int z1 = z0 + 1;
+    
+    float fx = gx - x0;
+    float fz = gz - z0;
+    
+    float h00 = heightmap[z0 * heightmapResolution + x0];
+    float h10 = heightmap[z0 * heightmapResolution + x1];
+    float h01 = heightmap[z1 * heightmapResolution + x0];
+    float h11 = heightmap[z1 * heightmapResolution + x1];
+    
+    // Skip invalid samples
+    if (h00 < -99000.0f || h10 < -99000.0f || h01 < -99000.0f || h11 < -99000.0f) {
+        return -99999.0f;
+    }
+    
+    // Bilinear interpolation
+    float h0 = h00 * (1.0f - fx) + h10 * fx;
+    float h1 = h01 * (1.0f - fx) + h11 * fx;
+    return h0 * (1.0f - fz) + h1 * fz;
+}
+
+bool Model::checkHeightmapCollision(float localX, float localY, float localZ, float radius) const {
+    if (!heightmapBuilt) return false;
+    
+    // Scale to model space
+    float mx = localX / scaleFactor;
+    float my = localY / scaleFactor;
+    float mz = localZ / scaleFactor;
+    float mr = radius / scaleFactor;
+    
+    // Sample terrain height at this XZ position
+    float terrainHeight = sampleHeightmapBilinear(mx, mz);
+    
+    if (terrainHeight < -99000.0f) {
+        return false;  // Outside heightmap bounds
+    }
+    
+    // Collision if player's bottom is below terrain
+    return (my - mr) < terrainHeight;
+}
+
+bool Model::getTerrainHeightAt(float localX, float localZ, float& outHeight) const {
+    if (!heightmapBuilt) return false;
+    
+    float mx = localX / scaleFactor;
+    float mz = localZ / scaleFactor;
+    
+    float h = sampleHeightmapBilinear(mx, mz);
+    if (h < -99000.0f) return false;
+    
+    outHeight = h * scaleFactor;
+    return true;
 }

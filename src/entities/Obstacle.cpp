@@ -71,7 +71,7 @@ bool Obstacle::loadModel(const std::string& modelPath, float scale) {
     ownsModel = true;  // This obstacle owns the model
     if (obstacleModel->load(modelPath)) {
         obstacleModel->setScale(scale);
-        useModel = true;
+        useModel = true;  // Enable model rendering!
         
         // Get and print bounds for debugging
         float minX, maxX, minY, maxY, minZ, maxZ;
@@ -126,7 +126,6 @@ void Obstacle::render() const {
             // The terrain model needs to be oriented as a flat ground surface
             // facing upward (Y-up). Most landscape models are already Y-up,
             // so we only apply rotation if needed based on model orientation.
-            // Scale uniformly on XZ plane for proper ground coverage
             glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);  // Rotate to lay flat if model is vertical
         }
         // MOUNTAIN type: No rotation - use model's native orientation
@@ -288,7 +287,7 @@ bool Obstacle::checkModelCollision(float px, float py, float pz, float radius) c
     float localZ = pz - z;
     
     // The terrain is rendered with glRotatef(-90, 1, 0, 0) which rotates around X axis
-    // Rotation matrix for -90� around X:
+    // Rotation matrix for -90° around X:
     //   [1,  0,   0 ]   [mx]   [ mx ]
     //   [0,  0,   1 ] * [my] = [ mz ]   (model Y -> world Z)
     //   [0, -1,   0 ]   [mz]   [-my ]   (model Z -> world -Y)
@@ -309,10 +308,10 @@ bool Obstacle::checkModelCollision(float px, float py, float pz, float radius) c
         localZ = modelZ;
     }
     
-    // Debug output - more frequent for testing
+    // Debug output - every second at 60fps
     static int debugCounter = 0;
     debugCounter++;
-    if (debugCounter % 60 == 0) {  // Every second at 60fps
+    if (debugCounter % 60 == 0) {
         float minX, maxX, minY, maxY, minZ, maxZ;
         obstacleModel->getBounds(minX, maxX, minY, maxY, minZ, maxZ);
         std::cout << "=== Collision Debug ===" << std::endl;
@@ -330,5 +329,6 @@ bool Obstacle::checkModelCollision(float px, float py, float pz, float radius) c
         std::cout << "======================" << std::endl;
     }
     
+    // Use BVH collision for accurate terrain collision detection
     return obstacleModel->checkCollision(localX, localY, localZ, radius);
 }

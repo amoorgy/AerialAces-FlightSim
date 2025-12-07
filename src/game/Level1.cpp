@@ -1259,16 +1259,12 @@ bool Level1::isLost() const {
 void Level1::createLighthouses() {
     std::cout << "\n=== Creating Lighthouses (2x plane size) ===" << std::endl;
     
-    // Load lighthouse model - try FBX format first for better quality
-    std::string lighthouseModelPath = findAssetPath("assets/lighthouse/fbx/lighthouse.fbx");
-    if (lighthouseModelPath.empty()) {
-        // Fallback to OBJ if FBX not found
-        lighthouseModelPath = findAssetPath("assets/lighthouse/obj/obj/lighthouse.obj");
-    }
+    // Load lighthouse model - use the OBJ file directly
+    std::string lighthouseModelPath = findAssetPath("assets/lighthouse/lighthouse.obj");
     
     // Lighthouse 1: Nice visible structure on mountain peak (about 2x plane size)
     Obstacle* lighthouse1 = new Obstacle(91.6f, 117.6f, 46.1f, 12, 35, 12, ObstacleType::BUILDING);
-    if (!lighthouse1->loadModel(lighthouseModelPath, 8.0f)) {
+    if (!lighthouse1->loadModel(lighthouseModelPath, 0.15f)) {  // Scale adjusted for model size
         std::cout << "Lighthouse model not found, using primitives" << std::endl;
     }
     lighthouses.push_back(lighthouse1);
@@ -1276,7 +1272,7 @@ void Level1::createLighthouses() {
     
     // Lighthouse 2: Nice visible structure on another mountain peak
     Obstacle* lighthouse2 = new Obstacle(41.6f, 117.6f, -3.9f, 12, 35, 12, ObstacleType::BUILDING);
-    if (!lighthouse2->loadModel(lighthouseModelPath, 8.0f)) {
+    if (!lighthouse2->loadModel(lighthouseModelPath, 0.15f)) {  // Scale adjusted for model size
         std::cout << "Lighthouse model not found, using primitives" << std::endl;
     }
     lighthouses.push_back(lighthouse2);

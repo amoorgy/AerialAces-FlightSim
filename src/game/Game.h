@@ -51,6 +51,8 @@ private:
     // Key state tracking
     bool pauseKeyPressed;
     bool lKeyPressed;
+    bool rKeyPressed;
+    bool mKeyPressed;  // For returning to main menu
     
 public:
     Game();
@@ -146,6 +148,16 @@ public:
     void renderPauseOverlay();
     
     /**
+     * Return to main menu
+     */
+    void returnToMenu();
+    
+    /**
+     * Unlock Level 2 (called when Level 1 is completed)
+     */
+    void unlockLevel2();
+    
+    /**
      * Get current game state
      */
     GameState getState() const { return state; }
@@ -154,6 +166,11 @@ public:
      * Check if game is running
      */
     bool isRunning() const { return state == GameState::PLAYING; }
+    
+    /**
+     * Get menu system (for level unlocking)
+     */
+    MenuSystem* getMenuSystem() const { return menuSystem; }
 };
 
 #endif // GAME_H

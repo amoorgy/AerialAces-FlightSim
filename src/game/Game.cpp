@@ -24,7 +24,9 @@ Game::Game()
       windowWidth(1280),
       windowHeight(720),
       pauseKeyPressed(false),
-      lKeyPressed(false) {
+      lKeyPressed(false),
+      rKeyPressed(false),
+      mKeyPressed(false) {
 }
 
 Game::~Game() {
@@ -76,9 +78,15 @@ void Game::update(float dt) {
                 menuSystem->resetConfirmation();
                 
                 if (option == MenuOption::SINGLE_PLAYER) {
-                    std::cout << "Starting Single Player mode..." << std::endl;
+                    std::cout << "Starting Level 1: Terrain Navigation..." << std::endl;
                     loadLevel(1);
                     state = GameState::PLAYING;
+                } else if (option == MenuOption::LEVEL_2) {
+                    if (menuSystem->isLevel2Unlocked()) {
+                        std::cout << "Starting Level 2: Aerial Combat..." << std::endl;
+                        loadLevel(2);
+                        state = GameState::PLAYING;
+                    }
                 } else if (option == MenuOption::COOP_MODE) {
                     std::cout << "Starting Co-op mode..." << std::endl;
                     loadCoopMode();
@@ -114,37 +122,101 @@ void Game::update(float dt) {
         if (currentLevel->isWon()) {
             state = GameState::LEVEL_COMPLETE;
             std::cout << "Level " << currentLevelIndex << " complete!" << std::endl;
-            std::cout << "Press 'L' to continue to next level..." << std::endl;
+            
+            // Unlock Level 2 if Level 1 was completed
+            if (currentLevelIndex == 1 && menuSystem) {
+                menuSystem->unlockLevel2();
+                std::cout << "LEVEL 2 UNLOCKED!" << std::endl;
+            }
+            
+            if (currentLevelIndex < MAX_LEVELS) {
+                std::cout << "Press 'L' to continue to Level " << (currentLevelIndex + 1) << std::endl;
+            }
+            std::cout << "Press 'R' to restart level" << std::endl;
+            std::cout << "Press 'M' to return to main menu" << std::endl;
         }
         
         // Check for level loss
         if (currentLevel->isLost()) {
             state = GameState::GAME_OVER;
-            std::cout << "Game Over! Press 'R' to restart level." << std::endl;
+            std::cout << "Game Over!" << std::endl;
+            std::cout << "Press 'R' to restart level" << std::endl;
+            std::cout << "Press 'M' to return to main menu" << std::endl;
         }
     }
     
-    // Handle level transition input with debouncing
+    // Handle level complete state input
     if (state == GameState::LEVEL_COMPLETE) {
+        // Press L to go to next level
         bool lPressed = input.isKeyPressed('l') || input.isKeyPressed('L');
         if (lPressed && !lKeyPressed) {
-            std::cout << "L key detected! Current level: " << currentLevelIndex << ", MAX_LEVELS: " << MAX_LEVELS << std::endl;
             if (currentLevelIndex < MAX_LEVELS) {
                 std::cout << "Loading level " << (currentLevelIndex + 1) << "..." << std::endl;
                 loadLevel(currentLevelIndex + 1);
             } else {
                 std::cout << "Congratulations! You've completed all levels!" << std::endl;
-                state = GameState::GAME_OVER;
+                returnToMenu();
             }
             lKeyPressed = true;
         } else if (!lPressed) {
             lKeyPressed = false;
         }
+        
+        // Press R to restart
+        bool rPressed = input.isKeyPressed('r') || input.isKeyPressed('R');
+        if (rPressed && !rKeyPressed) {
+            loadLevel(currentLevelIndex);
+            rKeyPressed = true;
+        } else if (!rPressed) {
+            rKeyPressed = false;
+        }
+        
+        // Press M to return to menu
+        bool mPressed = input.isKeyPressed('m') || input.isKeyPressed('M');
+        if (mPressed && !mKeyPressed) {
+            returnToMenu();
+            mKeyPressed = true;
+        } else if (!mPressed) {
+            mKeyPressed = false;
+        }
     }
     
-    // Handle restart on game over
-    if (state == GameState::GAME_OVER && (input.isKeyPressed('r') || input.isKeyPressed('R'))) {
-        loadLevel(currentLevelIndex);
+    // Handle game over state input
+    if (state == GameState::GAME_OVER) {
+        // Check for Level2's end screen selection with Enter key
+        Level2* level2 = dynamic_cast<Level2*>(currentLevel);
+        if (level2) {
+            bool enterPressed = input.isKeyPressed(13) || input.isKeyPressed(32);  // Enter or Space
+            if (enterPressed) {
+                if (level2->getEndScreenSelection() == 0) {
+                    // Restart selected
+                    loadLevel(currentLevelIndex);
+                    return;
+                } else if (level2->getEndScreenSelection() == 1) {
+                    // Main Menu selected
+                    returnToMenu();
+                    return;
+                }
+            }
+        }
+        
+        // Press R to restart (quick shortcut)
+        bool rPressed = input.isKeyPressed('r') || input.isKeyPressed('R');
+        if (rPressed && !rKeyPressed) {
+            loadLevel(currentLevelIndex);
+            rKeyPressed = true;
+        } else if (!rPressed) {
+            rKeyPressed = false;
+        }
+        
+        // Press M to return to menu (quick shortcut)
+        bool mPressed = input.isKeyPressed('m') || input.isKeyPressed('M');
+        if (mPressed && !mKeyPressed) {
+            returnToMenu();
+            mKeyPressed = true;
+        } else if (!mPressed) {
+            mKeyPressed = false;
+        }
     }
 }
 
@@ -341,7 +413,7 @@ void Game::nextLevel() {
         loadLevel(currentLevelIndex + 1);
     } else {
         std::cout << "Congratulations! You've completed all levels!" << std::endl;
-        state = GameState::GAME_OVER;
+        returnToMenu();
     }
 }
 
@@ -383,4 +455,23 @@ void Game::loadCoopMode() {
     }
     
     state = GameState::COOP_MODE;
+}
+
+void Game::returnToMenu() {
+    // Clean up current level
+    if (currentLevel) {
+        currentLevel->cleanup();
+        delete currentLevel;
+        currentLevel = nullptr;
+    }
+    
+    currentLevelIndex = 0;
+    state = GameState::MENU;
+    std::cout << "Returned to main menu" << std::endl;
+}
+
+void Game::unlockLevel2() {
+    if (menuSystem) {
+        menuSystem->unlockLevel2();
+    }
 }

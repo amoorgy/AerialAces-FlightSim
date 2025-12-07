@@ -6,16 +6,17 @@
  * @brief Available menu options
  */
 enum class MenuOption {
-    SINGLE_PLAYER = 0,
-    COOP_MODE = 1,
-    EXIT = 2
+    SINGLE_PLAYER = 0,  // Level 1
+    LEVEL_2 = 1,        // Level 2 (unlocked after completing Level 1)
+    COOP_MODE = 2,
+    EXIT = 3
 };
 
 /**
  * @class MenuSystem
  * @brief Main menu system for game mode selection
  * 
- * Displays options for Single Player, Co-op Mode, and Exit
+ * Displays options for Single Player, Level 2 (when unlocked), Co-op Mode, and Exit
  * Shows controls information
  */
 class MenuSystem {
@@ -25,9 +26,12 @@ private:
     float animationTimer;
     bool upKeyPressed;
     bool downKeyPressed;
-    float fadeAlpha[3];  // Fade alpha for each button
+    float fadeAlpha[4];  // Fade alpha for each button (now 4 options)
     float plane1X, plane1Y;  // Background plane 1 position
     float plane2X, plane2Y;  // Background plane 2 position
+    
+    // Level unlocking
+    bool level2Unlocked;
     
 public:
     MenuSystem();
@@ -68,6 +72,16 @@ public:
      * Reset confirmation state
      */
     void resetConfirmation();
+    
+    /**
+     * Unlock Level 2 (called when Level 1 is completed)
+     */
+    void unlockLevel2() { level2Unlocked = true; }
+    
+    /**
+     * Check if Level 2 is unlocked
+     */
+    bool isLevel2Unlocked() const { return level2Unlocked; }
 };
 
 #endif // MENUSYSTEM_H

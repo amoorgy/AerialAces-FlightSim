@@ -12,6 +12,8 @@
 #include <GL/gl.h>
 #endif
 
+#include "Texture.h"
+
 /**
  * @struct AABB
  * @brief Axis-Aligned Bounding Box for spatial queries
@@ -123,7 +125,7 @@ struct BVHNode {
 
 /**
  * @class Model
- * @brief Loads and renders 3D models from OBJ files with BVH collision
+ * @brief Loads and renders 3D models from OBJ files with BVH collision and texture support
  */
 class Model {
 private:
@@ -147,6 +149,19 @@ private:
     GLuint vboTexCoords;
     bool vboInitialized;
     
+    // Texture support
+    Texture* texture;
+    bool hasTexture;
+    std::string basePath;  // Directory of the model file
+    
+    // Heightmap for fast collision
+    std::vector<float> heightmap;
+    int heightmapResolution;
+    float heightmapMinX, heightmapMaxX;
+    float heightmapMinZ, heightmapMaxZ;
+    float heightmapCellSize;
+    bool heightmapBuilt;
+    
     void calculateBounds();
     void initVBOs();
     void cleanupVBOs();
@@ -157,6 +172,13 @@ private:
     void closestPointOnTriangle(float px, float py, float pz,
                                 const Triangle& tri,
                                 float& outX, float& outY, float& outZ) const;
+    
+    // Load texture from MTL file
+    bool loadMaterialTexture(const std::string& mtlPath);
+    
+    // Heightmap methods
+    void buildHeightmap(int resolution = 256);
+    float sampleHeightmapBilinear(float x, float z) const;
     
 public:
     Model();
@@ -180,13 +202,31 @@ public:
     bool checkCollision(float localX, float localY, float localZ, float radius) const;
     
     /**
+     * Simple height-based collision check
+     * @param localX, localY, localZ Position in model's local space
+     * @param radius Collision radius
+     * @return true if position is below terrain surface
+     */
+    bool checkHeightmapCollision(float localX, float localY, float localZ, float radius) const;
+    
+    /**
      * Get approximate terrain height at a given X,Z position
      */
     bool getHeightAtPosition(float worldX, float worldZ, float modelX, float modelZ, float& outHeight) const;
     
+    /**
+     * Get terrain height at position (for debugging)
+     */
+    bool getTerrainHeightAt(float localX, float localZ, float& outHeight) const;
+    
     // Access to raw vertex data
     const std::vector<float>& getVertices() const { return vertices; }
     size_t getVertexCount() const { return vertices.size() / 3; }
+    
+    /**
+     * Check if model has a loaded texture
+     */
+    bool hasLoadedTexture() const { return hasTexture && texture != nullptr && texture->isLoaded(); }
 };
 
 #endif // MODEL_H

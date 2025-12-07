@@ -6,6 +6,7 @@
 #include "../entities/Enemy.h"
 #include "../entities/Missile.h"
 #include "../entities/Obstacle.h"
+#include "../entities/Collectible.h"
 #include "../rendering/Camera.h"
 #include "../rendering/Lighting.h"
 #include "../utils/Timer.h"
@@ -34,17 +35,78 @@ enum class LockOnState {
 };
 
 /**
+ * @struct Lighthouse
+ * @brief Represents a lighthouse on a mountain peak
+ */
+struct Lighthouse {
+    float x, y, z;          // Position
+    float height;           // Lighthouse height
+    Obstacle* obstacle;     // Visual representation
+    
+    Lighthouse(float px, float py, float pz, float h)
+        : x(px), y(py), z(pz), height(h), obstacle(nullptr) {}
+};
+
+/**
+ * @struct Bullseye
+ * @brief Represents a target bullseye that player must hit with rockets
+ */
+struct Bullseye {
+    float x, y, z;          // Position
+    float radius;           // Collision/visual radius
+    bool destroyed;         // True if hit by rocket
+    float rotationAngle;    // For animation
+    
+    Bullseye(float px, float py, float pz, float r = 8.0f)
+        : x(px), y(py), z(pz), radius(r), destroyed(false), rotationAngle(0.0f) {}
+};
+
+/**
+ * @struct BonusRing
+ * @brief Rings that give bonus rockets when collected
+ */
+struct BonusRing {
+    float x, y, z;          // Position
+    float radius;           // Collection radius
+    bool collected;         // True if already collected
+    float rotationAngle;    // For animation
+    int rocketBonus;        // Number of rockets awarded
+    
+    BonusRing(float px, float py, float pz, int bonus = 3)
+        : x(px), y(py), z(pz), radius(5.0f), collected(false), 
+          rotationAngle(0.0f), rocketBonus(bonus) {}
+};
+
+/**
+ * @struct Rocket
+ * @brief Simple rocket projectile that flies straight and explodes
+ */
+struct Rocket {
+    float x, y, z;          // Position
+    float dirX, dirY, dirZ; // Direction (normalized)
+    float speed;            // Movement speed
+    float lifetime;         // Time alive
+    float maxLifetime;      // Max time before self-destruct
+    bool active;            // Still flying
+    
+    Rocket(float px, float py, float pz, float dx, float dy, float dz)
+        : x(px), y(py), z(pz), dirX(dx), dirY(dy), dirZ(dz),
+          speed(4.0f), lifetime(0.0f), maxLifetime(3.0f), active(true) {}
+};
+
+/**
  * @class Level2
- * @brief Aerial Combat Challenge
+ * @brief Aerial Combat Challenge - Bullseye Target Practice
  * 
- * Players engage in dogfight with enemy aircraft:
- * - Evade incoming missiles from enemies
- * - Lock onto enemy aircraft using FSM-based AI
- * - Destroy enemies with player missiles
- * - Complete finale sequence to win
+ * Players must hit 3 bullseye targets with limited rockets:
+ * - Press F to fire rockets in a straight line
+ * - Limited rockets (start with 5)
+ * - 30 second time limit
+ * - Collect bonus rings near bullseyes for extra rockets
+ * - If you run out of rockets, a tracking missile hunts you!
  * 
- * Win: Destroy all enemies and final target
- * Lose: Get hit by enemy missile or crash
+ * Win: Destroy all 3 bullseyes before time runs out
+ * Lose: Run out of time or crash into terrain
  */
 class Level2 : public Level {
 private:
@@ -56,6 +118,33 @@ private:
     std::vector<Enemy*> enemies;
     std::vector<Missile*> missiles;
     std::vector<Obstacle*> terrain;  // Sparse mountains
+    std::vector<Lighthouse> lighthouses;  // Lighthouses on mountain peaks
+    
+    // Bullseye targets
+    std::vector<Bullseye> bullseyes;
+    int bullseyesDestroyed;
+    int totalBullseyes;
+    
+    // Bonus rings for extra rockets
+    std::vector<BonusRing> bonusRings;
+    int ringsCollected;
+    
+    // Player rockets
+    std::vector<Rocket> rockets;
+    float rocketFireCooldown;
+    float rocketFireTimer;
+    bool fKeyWasPressed;
+    int rocketsRemaining;       // Limited rockets!
+    int maxRockets;             // Max rockets player can have
+    
+    // Punishment missile (spawns when out of rockets)
+    Missile* punishmentMissile;
+    bool punishmentMissileActive;
+    float punishmentMissileDelay;  // Delay before missile spawns
+    
+    // Timer for level
+    Timer levelTimer;
+    float levelTimeLimit;       // 30 seconds
     
     // Systems
     Camera* camera;
@@ -81,11 +170,11 @@ private:
     float missileFireTimer;
     bool leftMousePressed;
     
-    // Enemy missile spawning
-    float enemyMissileSpawnTimer;
-    float enemyMissileSpawnInterval;
+    // Lighthouse missile spawning (replaces enemy missile spawning)
+    float lighthouseMissileSpawnTimer;
+    float lighthouseMissileSpawnInterval;
     
-    // Safe zone (area near player is safe from enemy missiles)
+    // Safe zone (area near player start is safe from missiles)
     float safeZoneRadius;
     
     // Warning effects
@@ -140,6 +229,9 @@ private:
     // End screen animation
     float endScreenTimer;
     
+    // End screen menu selection (0 = Restart, 1 = Main Menu)
+    int endScreenSelection;
+    
     // Audio paths
     std::string explosionSoundPath;
     std::string lockOnSoundPath;
@@ -162,6 +254,9 @@ private:
     // Internal methods
     void createTerrain();
     void createEnemies();
+    void createLighthouses();
+    void createBullseyes();
+    void createBonusRings();
     void loadModels();
     void updateLockOn(float deltaTime);
     void updateMissiles(float deltaTime);
@@ -169,11 +264,20 @@ private:
     void updateExplosions(float deltaTime);
     void updateDebris(float deltaTime);
     void updateCameraShake(float deltaTime);
+    void updateLighthouses(float deltaTime);
+    void updateRockets(float deltaTime);
+    void updateBullseyes(float deltaTime);
+    void updateBonusRings(float deltaTime);
+    void updatePunishmentMissile(float deltaTime);
     void checkCollisions();
     void checkMissileCollisions();
+    void checkRocketCollisions();
+    void checkBonusRingCollisions();
     void checkNearMisses(float deltaTime);
     void fireMissile();
-    void spawnEnemyMissile();
+    void fireRocket();
+    void spawnPunishmentMissile();
+    void spawnLighthouseMissile();
     void triggerExplosion(float x, float y, float z);
     void triggerCameraShake(float intensity, float duration);
     void spawnDebris(float x, float y, float z, int count);
@@ -185,6 +289,10 @@ private:
     void renderSky();
     void renderMessages();
     void renderMissileWarning();
+    void renderLighthouses();
+    void renderBullseyes();
+    void renderBonusRings();
+    void renderRockets();
     void applyExplosionLights();
     
     // Helper methods
@@ -192,6 +300,7 @@ private:
     float distanceToPlayer(float x, float y, float z);
     Enemy* findNearestEnemy();
     bool isEnemyInSights(Enemy* enemy, float& outDistance, float& outAngle);
+    int findClosestLighthouse();
     
 public:
     Level2();
@@ -209,8 +318,8 @@ public:
     virtual void handleMouse(int button, int state, int x, int y) override;
     virtual void handleMouseMotion(int x, int y) override;
     virtual int getScore() const override { return score; }
-    virtual float getTimeRemaining() const override { return 999.0f; }  // No time limit in Level 2
-    virtual const char* getName() const override { return "Level 2: Aerial Combat"; }
+    virtual float getTimeRemaining() const override { return levelTimer.getTime(); }
+    virtual const char* getName() const override { return "Level 2: Target Practice"; }
     virtual void restart() override { reset(); }
     
     // Reset method (non-virtual)
@@ -226,6 +335,12 @@ public:
     
     // Camera access
     Camera* getCamera() const { return camera; }
+    
+    // Check if user selected main menu from end screen
+    bool isMainMenuSelected() const { return (state == Level2State::LOST || state == Level2State::WON) && endScreenSelection == 1; }
+    
+    // Get end screen selection (0 = restart, 1 = menu)
+    int getEndScreenSelection() const { return endScreenSelection; }
 };
 
 #endif // LEVEL2_H
