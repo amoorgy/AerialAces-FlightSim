@@ -67,7 +67,7 @@ Level2::Level2()
       punishmentMissile(nullptr),
       punishmentMissileActive(false),
       punishmentMissileDelay(2.0f),
-      levelTimeLimit(30.0f),
+      levelTimeLimit(2000.0f),
       lockOnState(LockOnState::NONE),
       lockedTarget(nullptr),
       lockOnProgress(0),
@@ -237,14 +237,17 @@ void Level2::createLighthouses() {
         {116.546f, 82.3485f, 156.181f}
     };
     
-    float lighthouseHeight = 35.0f;
+    // Increased lighthouse height for better visibility
+    float lighthouseHeight = 60.0f;
+    float lighthouseScale = 0.3f;
     
     for (int i = 0; i < 5; i++) {
         Lighthouse lh(positions[i].x, positions[i].y, positions[i].z, lighthouseHeight);
         
+        // Larger collision box to match scaled model
         Obstacle* obs = new Obstacle(positions[i].x, positions[i].y, positions[i].z, 
-                                      12, lighthouseHeight, 12, ObstacleType::BUILDING);
-        if (!obs->loadModel(lighthouseModelPath, 0.15f)) {
+                                      20, lighthouseHeight, 20, ObstacleType::BUILDING);
+        if (!obs->loadModel(lighthouseModelPath, lighthouseScale)) {
             std::cout << "Lighthouse " << (i+1) << " model not found, using primitives" << std::endl;
         }
         lh.obstacle = obs;
@@ -252,7 +255,8 @@ void Level2::createLighthouses() {
         
         lighthouses.push_back(lh);
         std::cout << "Lighthouse " << (i+1) << " created at (" 
-                  << positions[i].x << ", " << positions[i].y << ", " << positions[i].z << ")" << std::endl;
+                  << positions[i].x << ", " << positions[i].y << ", " << positions[i].z 
+                  << ") with height " << lighthouseHeight << std::endl;
     }
     
     std::cout << "=== Lighthouses Created: " << lighthouses.size() << " ===\n" << std::endl;
@@ -744,13 +748,50 @@ bool Level2::isWon() const { return state == Level2State::WON; }
 bool Level2::isLost() const { return state == Level2State::LOST; }
 void Level2::reset() { cleanup(); init(); }
 void Level2::toggleDayNight() { if (lighting) lighting->toggleDayNight(); }
-void Level2::handleMouse(int button, int st, int x, int y) { handleMouseButton(button, st, x, y); }
-void Level2::handleMouseMotion(int x, int y) { handleMouseMove(x, y); }
-void Level2::handleKeyPress(unsigned char key, bool pressed) { if ((key == 'r' || key == 'R') && pressed) reset(); }
-void Level2::handleMouseButton(int button, int st, int x, int y) {
-    if (button == GLUT_RIGHT_BUTTON && st == GLUT_DOWN && camera) camera->toggle();
+void Level2::handleMouse(int button, int st, int x, int y) { 
+    handleMouseButton(button, st, x, y); 
 }
-void Level2::handleMouseMove(int x, int y) { }
+
+void Level2::handleMouseMotion(int x, int y) { 
+    // Pass mouse motion to camera for orbit control
+    if (camera) {
+        camera->handleMouseMotion(x, y);
+    }
+}
+
+void Level2::handleKeyPress(unsigned char key, bool pressed) { 
+    if ((key == 'r' || key == 'R') && pressed) reset();
+    // C key toggles camera view
+    if ((key == 'c' || key == 'C') && pressed && camera) {
+        camera->toggle();
+        std::cout << "Camera: " << (camera->isFirstPerson() ? "First Person" : "Third Person") << std::endl;
+    }
+}
+
+void Level2::handleMouseButton(int button, int st, int x, int y) {
+    // Right click toggles camera view
+    if (button == GLUT_RIGHT_BUTTON && st == GLUT_DOWN && camera) {
+        camera->toggle();
+        std::cout << "Camera: " << (camera->isFirstPerson() ? "First Person" : "Third Person") << std::endl;
+    }
+    
+    // Pass mouse button events to camera for orbit control
+    if (camera) {
+        int buttonIndex = 0;
+        if (button == GLUT_LEFT_BUTTON) buttonIndex = 0;
+        else if (button == GLUT_MIDDLE_BUTTON) buttonIndex = 1;
+        else if (button == GLUT_RIGHT_BUTTON) buttonIndex = 2;
+        
+        camera->handleMouseButton(buttonIndex, st == GLUT_DOWN, x, y);
+    }
+}
+
+void Level2::handleMouseMove(int x, int y) {
+    // Pass mouse motion to camera for orbit control (passive motion)
+    if (camera) {
+        camera->handleMouseMotion(x, y);
+    }
+}
 
 void Level2::render() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -785,7 +826,10 @@ void Level2::render() {
     renderBonusRings();
     renderRockets();
     
-    if (player && player->isAlive()) player->render();
+    // Render player only in third-person view (not in first-person cockpit view)
+    if (player && player->isAlive() && camera && !camera->isFirstPerson()) {
+        player->render();
+    }
     
     for (auto* missile : missiles) {
         if (missile) missile->render();
@@ -822,20 +866,28 @@ void Level2::renderLighthouses() {
         const Lighthouse& lh = lighthouses[i];
         float angle = baseAngle + (i * 72.0f);
         
+        // Position beam lower - subtract offset from total height
+        float beamY = lh.y + lh.height - 10.0f;
+        
         glPushMatrix();
-        glTranslatef(lh.x, lh.y + lh.height, lh.z);
+        glTranslatef(lh.x, beamY, lh.z);
         glRotatef(angle, 0.0f, 1.0f, 0.0f);
-        glRotatef(-12.0f, 1.0f, 0.0f, 0.0f);
+        glRotatef(-8.0f, 1.0f, 0.0f, 0.0f);
         
         glBegin(GL_TRIANGLE_FAN);
-        glColor4f(1.0f, 0.95f, 0.8f, 0.8f);
+        glColor4f(1.0f, 0.95f, 0.8f, 0.7f);
         glVertex3f(0.0f, 0.0f, 0.0f);
         glColor4f(1.0f, 0.9f, 0.7f, 0.0f);
         for (int j = 0; j <= 32; j++) {
             float a = (float)j / 32 * 2.0f * M_PI;
-            glVertex3f(std::sin(a) * 150.0f, 0.0f, std::cos(a) * 150.0f + 400.0f);
+            glVertex3f(std::sin(a) * 200.0f, 0.0f, std::cos(a) * 200.0f + 500.0f);
         }
         glEnd();
+        
+        // Glowing orb at light source
+        glColor4f(1.0f, 0.95f, 0.7f, 0.9f);
+        glutSolidSphere(4.0f, 16, 16);
+        
         glPopMatrix();
     }
     
