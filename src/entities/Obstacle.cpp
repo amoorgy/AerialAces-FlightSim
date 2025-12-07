@@ -19,7 +19,8 @@ Obstacle::Obstacle()
       baseRadius(50.0f),
       active(true),
       obstacleModel(nullptr),
-      useModel(false) {
+      useModel(false),
+      ownsModel(false) {
 }
 
 Obstacle::Obstacle(float posX, float posY, float posZ, 
@@ -32,7 +33,8 @@ Obstacle::Obstacle(float posX, float posY, float posZ,
       baseRadius(w / 2.0f),
       active(true),
       obstacleModel(nullptr),
-      useModel(false) {
+      useModel(false),
+      ownsModel(false) {
     
     // Set default colors based on type
     switch (type) {
@@ -52,7 +54,7 @@ Obstacle::Obstacle(float posX, float posY, float posZ,
 }
 
 Obstacle::~Obstacle() {
-    if (obstacleModel != nullptr) {
+    if (obstacleModel != nullptr && ownsModel) {
         delete obstacleModel;
         obstacleModel = nullptr;
     }
@@ -61,11 +63,12 @@ Obstacle::~Obstacle() {
 bool Obstacle::loadModel(const std::string& modelPath, float scale) {
     std::cout << "Obstacle: Loading model from " << modelPath << std::endl;
     
-    if (obstacleModel != nullptr) {
+    if (obstacleModel != nullptr && ownsModel) {
         delete obstacleModel;
     }
     
     obstacleModel = new Model();
+    ownsModel = true;  // This obstacle owns the model
     if (obstacleModel->load(modelPath)) {
         obstacleModel->setScale(scale);
         useModel = true;
@@ -90,8 +93,20 @@ bool Obstacle::loadModel(const std::string& modelPath, float scale) {
         delete obstacleModel;
         obstacleModel = nullptr;
         useModel = false;
+        ownsModel = false;
         return false;
     }
+}
+
+void Obstacle::setSharedModel(Model* sharedModel) {
+    // Clean up any existing owned model
+    if (obstacleModel != nullptr && ownsModel) {
+        delete obstacleModel;
+    }
+    
+    obstacleModel = sharedModel;
+    useModel = (sharedModel != nullptr);
+    ownsModel = false;  // This obstacle does NOT own the shared model
 }
 
 void Obstacle::render() const {

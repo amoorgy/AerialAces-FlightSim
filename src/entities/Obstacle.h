@@ -47,6 +47,7 @@ private:
     // 3D Model support
     Model* obstacleModel;
     bool useModel;  // Flag to use model vs primitives
+    bool ownsModel;  // Flag to track if this obstacle owns the model (for deletion)
     
 public:
     Obstacle();
@@ -61,6 +62,12 @@ public:
      * @param scale Scale factor for the model
      */
     bool loadModel(const std::string& modelPath, float scale = 1.0f);
+    
+    /**
+     * Share an existing model with this obstacle (doesn't take ownership)
+     * @param sharedModel Pointer to existing Model to share
+     */
+    void setSharedModel(Model* sharedModel);
     
     /**
      * Render the obstacle
@@ -120,6 +127,11 @@ public:
      * Check if model is loaded
      */
     bool hasModel() const { return useModel && obstacleModel != nullptr; }
+    
+    /**
+     * Get the model pointer (for sharing)
+     */
+    Model* getModel() const { return obstacleModel; }
     
     /**
      * Check if obstacle is active (for destroyable targets in Level 2)

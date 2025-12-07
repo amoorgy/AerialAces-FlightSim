@@ -101,11 +101,47 @@ private:
         float timer;
         float duration;
         float scale;
+        int lightId;  // Dynamic light ID for this explosion
         
-        ExplosionEffect(float px, float py, float pz)
-            : x(px), y(py), z(pz), timer(0), duration(1.5f), scale(1.0f) {}
+        ExplosionEffect(float px, float py, float pz, int lid = -1)
+            : x(px), y(py), z(pz), timer(0), duration(1.5f), scale(1.0f), lightId(lid) {}
     };
     std::vector<ExplosionEffect> explosions;
+    
+    // Debris particles
+    struct DebrisParticle {
+        float x, y, z;
+        float vx, vy, vz;  // Velocity
+        float rx, ry, rz;  // Rotation
+        float rotSpeed;
+        float life;
+        float size;
+        
+        DebrisParticle(float px, float py, float pz)
+            : x(px), y(py), z(pz), 
+              vx((rand()%200-100)/100.0f), 
+              vy((rand()%150+50)/100.0f), 
+              vz((rand()%200-100)/100.0f),
+              rx(rand()%360), ry(rand()%360), rz(rand()%360),
+              rotSpeed((rand()%200+100)/10.0f),
+              life(1.0f), size(0.5f + (rand()%10)/10.0f) {}
+    };
+    std::vector<DebrisParticle> debris;
+    
+    // Camera shake
+    float cameraShakeIntensity;
+    float cameraShakeDuration;
+    float cameraShakeTimer;
+    
+    // Near-miss detection
+    float nearMissTimer;
+    bool nearMissDetected;
+    
+    // Audio paths
+    std::string explosionSoundPath;
+    std::string lockOnSoundPath;
+    std::string missileLaunchSoundPath;
+    std::string whooshSoundPath;
     
     // Player start position
     float startX, startY, startZ;
@@ -128,17 +164,25 @@ private:
     void updateMissiles(float deltaTime);
     void updateEnemies(float deltaTime);
     void updateExplosions(float deltaTime);
+    void updateDebris(float deltaTime);
+    void updateCameraShake(float deltaTime);
     void checkCollisions();
     void checkMissileCollisions();
+    void checkNearMisses(float deltaTime);
     void fireMissile();
     void spawnEnemyMissile();
     void triggerExplosion(float x, float y, float z);
+    void triggerCameraShake(float intensity, float duration);
+    void spawnDebris(float x, float y, float z, int count);
+    void playSound(const std::string& soundPath);
     void renderHUD();
     void renderLockOnReticle();
     void renderExplosions();
+    void renderDebris();
     void renderSky();
     void renderMessages();
     void renderMissileWarning();
+    void applyExplosionLights();
     
     // Helper methods
     bool isInSafeZone(float x, float y, float z);

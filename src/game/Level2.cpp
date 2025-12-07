@@ -78,7 +78,18 @@ Level2::Level2()
       levelLength(800),
       finaleTarget(nullptr),
       finaleTriggered(false),
-      finaleTimer(0) {
+      finaleTimer(0),
+      cameraShakeIntensity(0),
+      cameraShakeDuration(0),
+      cameraShakeTimer(0),
+      nearMissTimer(0),
+      nearMissDetected(false) {
+    
+    // Initialize sound paths
+    explosionSoundPath = findAssetPath("assets/sounds/explosion.wav");
+    lockOnSoundPath = findAssetPath("assets/sounds/lock_on.wav");
+    missileLaunchSoundPath = findAssetPath("assets/sounds/missle_launch.wav");
+    whooshSoundPath = findAssetPath("assets/sounds/whoosh.wav");
 }
 
 Level2::~Level2() {
@@ -140,25 +151,18 @@ void Level2::loadModels() {
 void Level2::createTerrain() {
     std::cout << "Level2: Creating terrain..." << std::endl;
     
-    // Use simple primitive mountains for fast loading (Level 2 focuses on aerial combat, not terrain detail)
-    float mountainPositions[][3] = {
-        {-200, 0, -200},
-        {200, 0, -200},
-        {-200, 0, 200},
-        {200, 0, 200},
-        {-300, 0, 0},
-        {300, 0, 0}
-    };
+    // Create just ONE mountain with model for fast loading
+    std::string mountainModelPath = findAssetPath("assets/mountains/mountains/mountains.obj");
     
-    for (int i = 0; i < 6; i++) {
-        Obstacle* mountain = new Obstacle(
-            mountainPositions[i][0],
-            mountainPositions[i][1],
-            mountainPositions[i][2],
-            50, 80, 50,
-            ObstacleType::MOUNTAIN
-        );
-        mountain->setColor(0.5f, 0.4f, 0.3f);  // Brown/gray mountain color
+    Obstacle* mountain = new Obstacle(0, 0, -250, 50, 80, 50, ObstacleType::MOUNTAIN);
+    bool modelLoaded = mountain->loadModel(mountainModelPath, 0.3f);  // Smaller scale = faster
+    
+    if (modelLoaded) {
+        std::cout << "Level2: Mountain model loaded!" << std::endl;
+        terrain.push_back(mountain);
+    } else {
+        std::cout << "Level2: Mountain model not found, using primitive" << std::endl;
+        mountain->setColor(0.5f, 0.4f, 0.3f);
         terrain.push_back(mountain);
     }
     
@@ -232,9 +236,18 @@ void Level2::update(float deltaTime, const bool* keys) {
     // Update explosions
     updateExplosions(deltaTime);
     
+    // Update debris
+    updateDebris(deltaTime);
+    
+    // Update camera shake
+    updateCameraShake(deltaTime);
+    
     // Check collisions
     checkCollisions();
     checkMissileCollisions();
+    
+    // Check for near-miss missiles
+    checkNearMisses(deltaTime);
     
     // Update missile firing cooldown
     if (missileFireTimer > 0) {
@@ -369,15 +382,16 @@ void Level2::updateLockOn(float deltaTime) {
                 
                 // Beep sound (faster as lock progresses)
                 lockOnBeepTimer += deltaTime;
-                float beepInterval = 0.5f - (lockOnProgress * 0.4f);
+                float beepInterval = 0.5f - (lockOnProgress * 0.4f);  // Increasing frequency
                 if (lockOnBeepTimer >= beepInterval) {
-                    // Play beep sound (TODO: add sound)
+                    playSound(lockOnSoundPath);  // Play lock-on beep
                     lockOnBeepTimer = 0;
                 }
                 
                 if (lockOnProgress >= 1.0f) {
                     lockOnState = LockOnState::LOCKED;
                     lockOnProgress = 1.0f;
+                    playSound(lockOnSoundPath);  // Final lock sound
                     std::cout << "TARGET LOCKED!" << std::endl;
                 }
             }
@@ -401,12 +415,90 @@ void Level2::updateExplosions(float deltaTime) {
         explosion.scale = 1.0f + (explosion.timer / explosion.duration) * 3.0f;
     }
     
-    // Remove finished explosions
+    // Remove finished explosions and disable their lights
     explosions.erase(
         std::remove_if(explosions.begin(), explosions.end(),
-            [](const ExplosionEffect& e) { return e.timer >= e.duration; }),
+            [](const ExplosionEffect& e) {
+                if (e.timer >= e.duration && e.lightId >= 0) {
+                    glDisable(GL_LIGHT2 + e.lightId);
+                }
+                return e.timer >= e.duration;
+            }),
         explosions.end()
     );
+}
+
+void Level2::updateDebris(float deltaTime) {
+    for (auto& particle : debris) {
+        // Apply gravity
+        particle.vy -= 9.8f * deltaTime;
+        
+        // Update position
+        particle.x += particle.vx * deltaTime * 10.0f;
+        particle.y += particle.vy * deltaTime * 10.0f;
+        particle.z += particle.vz * deltaTime * 10.0f;
+        
+        // Update rotation
+        particle.rx += particle.rotSpeed * deltaTime;
+        particle.ry += particle.rotSpeed * deltaTime * 1.3f;
+        particle.rz += particle.rotSpeed * deltaTime * 0.7f;
+        
+        // Decay life
+        particle.life -= deltaTime * 0.8f;
+    }
+    
+    // Remove dead debris
+    debris.erase(
+        std::remove_if(debris.begin(), debris.end(),
+            [](const DebrisParticle& p) { return p.life <= 0.0f || p.y < -10.0f; }),
+        debris.end()
+    );
+}
+
+void Level2::updateCameraShake(float deltaTime) {
+    if (cameraShakeTimer > 0) {
+        cameraShakeTimer -= deltaTime;
+        if (cameraShakeTimer <= 0) {
+            cameraShakeIntensity = 0;
+            cameraShakeTimer = 0;
+        }
+    }
+}
+
+void Level2::checkNearMisses(float deltaTime) {
+    if (!player || !player->isAlive()) return;
+    
+    float px, py, pz;
+    player->getPosition(px, py, pz);
+    float nearMissDistance = 15.0f;  // Distance threshold for near-miss
+    
+    nearMissDetected = false;
+    
+    for (auto* missile : missiles) {
+        if (!missile || !missile->isActive() || missile->isPlayerOwned()) continue;
+        
+        float mx, my, mz;
+        missile->getPosition(mx, my, mz);
+        
+        float dx = mx - px;
+        float dy = my - py;
+        float dz = mz - pz;
+        float distance = std::sqrt(dx*dx + dy*dy + dz*dz);
+        
+        if (distance < nearMissDistance && distance > player->getBoundingRadius() + 2.0f) {
+            nearMissDetected = true;
+            if (nearMissTimer <= 0) {
+                playSound(whooshSoundPath);
+                triggerCameraShake(2.0f, 0.3f);
+                nearMissTimer = 1.0f;  // Cooldown
+            }
+            break;
+        }
+    }
+    
+    if (nearMissTimer > 0) {
+        nearMissTimer -= deltaTime;
+    }
 }
 
 void Level2::checkCollisions() {
@@ -427,6 +519,10 @@ void Level2::checkCollisions() {
             if (obstacle->getType() != ObstacleType::GROUND || py < 15.0f) {
                 player->kill();
                 triggerExplosion(px, py, pz);
+                spawnDebris(px, py, pz, 20);
+                playSound(explosionSoundPath);
+                triggerCameraShake(8.0f, 1.0f);
+                if (lighting) lighting->flashEffect(0.6f);
                 std::cout << "Player crashed into terrain!" << std::endl;
                 return;
             }
@@ -454,6 +550,10 @@ void Level2::checkMissileCollisions() {
                         enemy->destroy();
                         missile->deactivate();
                         triggerExplosion(ex, ey, ez);
+                        spawnDebris(ex, ey, ez, 15);
+                        playSound(explosionSoundPath);
+                        triggerCameraShake(5.0f, 0.8f);
+                        if (lighting) lighting->flashEffect(0.5f);
                         score += 100;
                         enemiesDestroyed++;
                         std::cout << "Enemy destroyed! (" << enemiesDestroyed << "/" << totalEnemies << ")" << std::endl;
@@ -473,6 +573,10 @@ void Level2::checkMissileCollisions() {
                     finaleTarget->deactivate();
                     missile->deactivate();
                     triggerExplosion(finaleTarget->getX(), finaleTarget->getY(), finaleTarget->getZ());
+                    spawnDebris(finaleTarget->getX(), finaleTarget->getY(), finaleTarget->getZ(), 25);
+                    playSound(explosionSoundPath);
+                    triggerCameraShake(10.0f, 1.5f);
+                    if (lighting) lighting->flashEffect(0.8f);
                     std::cout << "Finale target destroyed!" << std::endl;
                 }
             }
@@ -487,6 +591,10 @@ void Level2::checkMissileCollisions() {
                     player->kill();
                     missile->deactivate();
                     triggerExplosion(px, py, pz);
+                    spawnDebris(px, py, pz, 20);
+                    playSound(explosionSoundPath);
+                    triggerCameraShake(8.0f, 1.2f);
+                    if (lighting) lighting->flashEffect(0.7f);
                     std::cout << "Player hit by enemy missile!" << std::endl;
                     return;
                 }
@@ -504,6 +612,8 @@ void Level2::checkMissileCollisions() {
                     
                     missile->deactivate();
                     triggerExplosion(mx, my, mz);
+                    spawnDebris(mx, my, mz, 8);
+                    playSound(explosionSoundPath);
                     break;
                 }
             }
@@ -547,7 +657,29 @@ void Level2::fireMissile() {
     
     missileFireTimer = missileFireCooldown;
     
+    // Play missile launch sound
+    playSound(missileLaunchSoundPath);
+    
     std::cout << "Missile fired!" << std::endl;
+}
+
+void Level2::triggerCameraShake(float intensity, float duration) {
+    cameraShakeIntensity = intensity;
+    cameraShakeDuration = duration;
+    cameraShakeTimer = duration;
+}
+
+void Level2::spawnDebris(float x, float y, float z, int count) {
+    for (int i = 0; i < count; i++) {
+        debris.push_back(DebrisParticle(x, y, z));
+    }
+}
+
+void Level2::playSound(const std::string& soundPath) {
+#ifdef _WIN32
+    // Play sound asynchronously on Windows
+    PlaySoundA(soundPath.c_str(), NULL, SND_FILENAME | SND_ASYNC);
+#endif
 }
 
 void Level2::spawnEnemyMissile() {
@@ -690,6 +822,22 @@ void Level2::render() {
     // Clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
+    // Set up projection matrix explicitly
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(45.0, 1280.0/720.0, 0.1, 1000.0);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    // Apply camera shake if active
+    if (cameraShakeTimer > 0) {
+        float shakeX = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity;
+        float shakeY = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity;
+        float shakeZ = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity;
+        glTranslatef(shakeX, shakeY, shakeZ);
+    }
+    
     // Set up camera
     if (camera) {
         camera->apply();
@@ -699,6 +847,9 @@ void Level2::render() {
     if (lighting) {
         lighting->apply();
     }
+    
+    // Apply dynamic explosion lights
+    applyExplosionLights();
     
     // Render sky
     renderSky();
@@ -762,6 +913,9 @@ void Level2::render() {
     // Render explosions
     renderExplosions();
     
+    // Render debris
+    renderDebris();
+    
     // Render HUD
     renderHUD();
     
@@ -775,6 +929,11 @@ void Level2::render() {
         renderMissileWarning();
     }
     
+    // Render near-miss warning
+    if (nearMissDetected) {
+        renderMissileWarning();  // Reuse same warning visual
+    }
+    
     // Render messages
     renderMessages();
     
@@ -782,9 +941,15 @@ void Level2::render() {
 }
 
 void Level2::renderSky() {
+    // Save current state
+    GLboolean lightingEnabled = glIsEnabled(GL_LIGHTING);
+    GLboolean depthEnabled = glIsEnabled(GL_DEPTH_TEST);
+    
     glDisable(GL_LIGHTING);
     glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);  // Don't write to depth buffer
     
+    // Save matrices
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -792,7 +957,12 @@ void Level2::renderSky() {
     
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
-    glLoadIdentity();
+    
+    // Extract only rotation from camera (remove translation for skybox effect)
+    GLfloat m[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, m);
+    m[12] = 0; m[13] = 0; m[14] = 0;  // Remove translation
+    glLoadMatrixf(m);
     
     bool isNight = lighting && lighting->isNightMode();
     
@@ -817,13 +987,81 @@ void Level2::renderSky() {
     }
     glEnd();
     
+    // Restore matrices
     glPopMatrix();
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
     
-    glEnable(GL_DEPTH_TEST);
+    // Restore state
+    glDepthMask(GL_TRUE);
+    if (depthEnabled) glEnable(GL_DEPTH_TEST);
+    if (lightingEnabled) glEnable(GL_LIGHTING);
+}
+
+void Level2::renderDebris() {
+    glDisable(GL_LIGHTING);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    for (const auto& particle : debris) {
+        glPushMatrix();
+        glTranslatef(particle.x, particle.y, particle.z);
+        glRotatef(particle.rx, 1, 0, 0);
+        glRotatef(particle.ry, 0, 1, 0);
+        glRotatef(particle.rz, 0, 0, 1);
+        glScalef(particle.size, particle.size, particle.size);
+        
+        float alpha = particle.life * 0.8f;
+        glColor4f(0.3f, 0.3f, 0.3f, alpha);  // Dark gray debris
+        
+        glutSolidCube(1.0);
+        
+        glPopMatrix();
+    }
+    
+    glDisable(GL_BLEND);
     glEnable(GL_LIGHTING);
+}
+
+void Level2::applyExplosionLights() {
+    // Apply dynamic lights for explosions (use GL_LIGHT2 through GL_LIGHT7)
+    int lightIndex = 0;
+    for (auto& explosion : explosions) {
+        if (lightIndex >= 6) break;  // Max 6 explosion lights
+        
+        GLenum lightId = GL_LIGHT2 + lightIndex;
+        
+        // Store light ID in explosion
+        explosion.lightId = lightIndex;
+        
+        glEnable(lightId);
+        
+        // Calculate light intensity based on explosion progress
+        float progress = explosion.timer / explosion.duration;
+        float intensity = (1.0f - progress) * 0.8f;  // Fade out
+        
+        // Pulsing effect
+        float pulse = 0.5f + 0.5f * std::sin(explosion.timer * 10.0f);
+        intensity *= (0.7f + 0.3f * pulse);
+        
+        GLfloat position[] = {explosion.x, explosion.y, explosion.z, 1.0f};  // Point light
+        GLfloat diffuse[] = {intensity * 1.0f, intensity * 0.5f, intensity * 0.1f, 1.0f};  // Orange
+        GLfloat ambient[] = {intensity * 0.3f, intensity * 0.15f, intensity * 0.0f, 1.0f};
+        GLfloat specular[] = {intensity * 0.8f, intensity * 0.4f, intensity * 0.1f, 1.0f};
+        
+        glLightfv(lightId, GL_POSITION, position);
+        glLightfv(lightId, GL_DIFFUSE, diffuse);
+        glLightfv(lightId, GL_AMBIENT, ambient);
+        glLightfv(lightId, GL_SPECULAR, specular);
+        
+        // Attenuation for realistic falloff
+        glLightf(lightId, GL_CONSTANT_ATTENUATION, 1.0f);
+        glLightf(lightId, GL_LINEAR_ATTENUATION, 0.05f);
+        glLightf(lightId, GL_QUADRATIC_ATTENUATION, 0.01f);
+        
+        lightIndex++;
+    }
 }
 
 void Level2::renderExplosions() {
@@ -941,21 +1179,51 @@ void Level2::renderLockOnReticle() {
     // Draw reticle at screen center (simplified - enemy is in sights)
     float centerX = 640;
     float centerY = 360;
-    float size = 40.0f - (lockOnProgress * 20.0f);  // Closes in as lock progresses
+    float size = 50.0f - (lockOnProgress * 25.0f);  // Closes in as lock progresses
+    
+    // Pulsing effect when locked
+    float pulse = 1.0f;
+    if (lockOnState == LockOnState::LOCKED) {
+        pulse = 0.7f + 0.3f * std::abs(std::sin(glutGet(GLUT_ELAPSED_TIME) * 0.01f));
+    }
+    
+    // Animated rotation when acquiring
+    float rotation = 0.0f;
+    if (lockOnState == LockOnState::ACQUIRING) {
+        rotation = lockOnProgress * 360.0f;
+    }
     
     if (lockOnState == LockOnState::ACQUIRING) {
         glColor3f(1.0f, 1.0f, 0.0f);  // Yellow
     } else {
-        glColor3f(1.0f, 0.0f, 0.0f);  // Red when locked
+        glColor3f(1.0f * pulse, 0.0f, 0.0f);  // Red with pulsing when locked
     }
     
-    glLineWidth(2.0f);
+    glLineWidth(3.0f);
+    
+    // Animated square with rotation
+    glPushMatrix();
+    glTranslatef(centerX, centerY, 0);
+    glRotatef(rotation, 0, 0, 1);
     glBegin(GL_LINE_LOOP);
-    glVertex2f(centerX - size, centerY - size);
-    glVertex2f(centerX + size, centerY - size);
-    glVertex2f(centerX + size, centerY + size);
-    glVertex2f(centerX - size, centerY + size);
+    glVertex2f(-size, -size);
+    glVertex2f(size, -size);
+    glVertex2f(size, size);
+    glVertex2f(-size, size);
     glEnd();
+    glPopMatrix();
+    
+    // Inner pulsing square when locked
+    if (lockOnState == LockOnState::LOCKED) {
+        glLineWidth(2.0f);
+        float innerSize = size * 0.6f * pulse;
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(centerX - innerSize, centerY - innerSize);
+        glVertex2f(centerX + innerSize, centerY - innerSize);
+        glVertex2f(centerX + innerSize, centerY + innerSize);
+        glVertex2f(centerX - innerSize, centerY + innerSize);
+        glEnd();
+    }
     
     // Draw corner brackets
     float bracketSize = 10.0f;
