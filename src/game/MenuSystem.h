@@ -22,6 +22,12 @@ class MenuSystem {
 private:
     MenuOption selectedOption;
     bool enterPressed;
+    float animationTimer;
+    bool upKeyPressed;
+    bool downKeyPressed;
+    float fadeAlpha[3];  // Fade alpha for each button
+    float plane1X, plane1Y;  // Background plane 1 position
+    float plane2X, plane2Y;  // Background plane 2 position
     
 public:
     MenuSystem();
@@ -31,8 +37,10 @@ public:
      * Update menu logic
      * @param deltaTime Time since last frame
      * @param keys Array of key states
+     * @param upPressed Is up arrow pressed
+     * @param downPressed Is down arrow pressed
      */
-    void update(float deltaTime, const bool* keys);
+    void update(float deltaTime, const bool* keys, bool upPressed, bool downPressed);
     
     /**
      * Render the menu

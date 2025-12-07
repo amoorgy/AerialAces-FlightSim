@@ -83,7 +83,8 @@ Level2::Level2()
       cameraShakeDuration(0),
       cameraShakeTimer(0),
       nearMissTimer(0),
-      nearMissDetected(false) {
+      nearMissDetected(false),
+      endScreenTimer(0) {
     
     // Initialize sound paths
     explosionSoundPath = findAssetPath("assets/sounds/explosion.wav");
@@ -208,6 +209,7 @@ void Level2::createEnemies() {
 void Level2::update(float deltaTime, const bool* keys) {
     if (state != Level2State::PLAYING) {
         if (state == Level2State::WON || state == Level2State::LOST) {
+            endScreenTimer += deltaTime;  // Update animation timer
             return;
         }
     }
@@ -270,6 +272,7 @@ void Level2::update(float deltaTime, const bool* keys) {
         std::cout << "All enemies destroyed! Starting finale sequence..." << std::endl;
         state = Level2State::FINALE;
         finaleTriggered = true;
+        endScreenTimer = 0;
         
         // Create finale target (large structure to destroy)
         finaleTarget = new Obstacle(0, 50, -400, 40, 60, 40, ObstacleType::BUILDING);
@@ -284,6 +287,7 @@ void Level2::update(float deltaTime, const bool* keys) {
         // Check if finale target is destroyed
         if (finaleTarget && !finaleTarget->isActive()) {
             state = Level2State::WON;
+            endScreenTimer = 0;  // Reset animation timer
             std::cout << "MISSION ACCOMPLISHED!" << std::endl;
         }
     }
@@ -291,6 +295,7 @@ void Level2::update(float deltaTime, const bool* keys) {
     // Check for player death
     if (player && !player->isAlive()) {
         state = Level2State::LOST;
+        endScreenTimer = 0;  // Reset animation timer
     }
 }
 
@@ -1373,91 +1378,139 @@ void Level2::renderMessages() {
     glDisable(GL_LIGHTING);
     glDisable(GL_DEPTH_TEST);
     
-    // Semi-transparent overlay for end screens
+    // Animated overlay fade-in for end screens
     if (state == Level2State::WON || state == Level2State::LOST) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
+        float overlayAlpha = std::min(0.85f, endScreenTimer * 1.0f);
+        glColor4f(0.0f, 0.0f, 0.0f, overlayAlpha);
         glBegin(GL_QUADS);
         glVertex2f(0, 0);
         glVertex2f(1280, 0);
         glVertex2f(1280, 720);
         glVertex2f(0, 720);
         glEnd();
-        glDisable(GL_BLEND);
     }
     
     char buffer[128];
+    float pulse = 0.8f + 0.2f * std::sin(endScreenTimer * 3.0f);
+    float slideIn = std::min(1.0f, endScreenTimer * 1.5f);
     
     if (state == Level2State::WON) {
-        // Victory message
-        glColor3f(0.2f, 1.0f, 0.2f);
+        // Victory message with green glow
+        float glowIntensity = 0.5f + 0.5f * std::sin(endScreenTimer * 4.0f);
+        
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glColor4f(0.2f, 1.0f, 0.2f, glowIntensity * 0.4f);
+        sprintf(buffer, "MISSION ACCOMPLISHED!");
+        for (int i = -3; i <= 3; i++) {
+            for (int j = -3; j <= 3; j++) {
+                glRasterPos2f(480 + i * 2, 420 + j * 2);
+                for (char* c = buffer; *c != '\0'; c++) {
+                    glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+                }
+            }
+        }
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Main text with pulse
+        glColor3f(0.2f * pulse, 1.0f * pulse, 0.2f * pulse);
         sprintf(buffer, "MISSION ACCOMPLISHED!");
         glRasterPos2f(480, 420);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);
+        // Slide-in details
+        glColor3f(1.0f * slideIn, 1.0f * slideIn, 1.0f * slideIn);
         sprintf(buffer, "All enemies destroyed!");
-        glRasterPos2f(520, 380);
+        glRasterPos2f(520 - (1.0f - slideIn) * 250, 380);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        sprintf(buffer, "Final Score: %d", score);
-        glRasterPos2f(540, 340);
+        // Animated score counter
+        int displayScore = (int)(score * std::min(1.0f, endScreenTimer));
+        sprintf(buffer, "Final Score: %d", displayScore);
+        glRasterPos2f(540 - (1.0f - slideIn) * 250, 340);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
         sprintf(buffer, "Enemies Destroyed: %d", enemiesDestroyed);
-        glRasterPos2f(510, 300);
+        glRasterPos2f(510 - (1.0f - slideIn) * 250, 300);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        // Restart hint
-        glColor3f(1.0f, 0.9f, 0.2f);
-        sprintf(buffer, "Press R to restart");
-        glRasterPos2f(540, 220);
-        for (char* c = buffer; *c != '\0'; c++) {
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        // Pulsing restart hint
+        if (endScreenTimer > 1.0f) {
+            float promptPulse = 0.7f + 0.3f * std::sin(endScreenTimer * 5.0f);
+            glColor3f(1.0f * promptPulse, 0.9f * promptPulse, 0.2f * promptPulse);
+            sprintf(buffer, "Press R to restart");
+            glRasterPos2f(540, 220);
+            for (char* c = buffer; *c != '\0'; c++) {
+                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+            }
         }
     } else if (state == Level2State::LOST) {
-        // Game over message
-        glColor3f(1.0f, 0.2f, 0.2f);
+        // Game over message with red glow
+        float glowIntensity = 0.5f + 0.5f * std::sin(endScreenTimer * 4.0f);
+        
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glColor4f(1.0f, 0.0f, 0.0f, glowIntensity * 0.4f);
+        sprintf(buffer, "MISSION FAILED");
+        for (int i = -3; i <= 3; i++) {
+            for (int j = -3; j <= 3; j++) {
+                glRasterPos2f(520 + i * 2, 420 + j * 2);
+                for (char* c = buffer; *c != '\0'; c++) {
+                    glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+                }
+            }
+        }
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Main text with pulse
+        glColor3f(1.0f * pulse, 0.2f * pulse, 0.2f * pulse);
         sprintf(buffer, "MISSION FAILED");
         glRasterPos2f(520, 420);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);
+        // Slide-in details
+        glColor3f(1.0f * slideIn, 1.0f * slideIn, 1.0f * slideIn);
         sprintf(buffer, "You were shot down!");
-        glRasterPos2f(520, 380);
+        glRasterPos2f(520 - (1.0f - slideIn) * 250, 380);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
         sprintf(buffer, "Enemies Destroyed: %d / %d", enemiesDestroyed, totalEnemies);
-        glRasterPos2f(490, 340);
+        glRasterPos2f(490 - (1.0f - slideIn) * 250, 340);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        sprintf(buffer, "Score: %d", score);
-        glRasterPos2f(570, 300);
+        // Animated score counter
+        int displayScore = (int)(score * std::min(1.0f, endScreenTimer));
+        sprintf(buffer, "Score: %d", displayScore);
+        glRasterPos2f(570 - (1.0f - slideIn) * 250, 300);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        // Restart hint
-        glColor3f(1.0f, 0.9f, 0.2f);
-        sprintf(buffer, "Press R to restart");
-        glRasterPos2f(540, 240);
-        for (char* c = buffer; *c != '\0'; c++) {
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        // Pulsing restart hint
+        if (endScreenTimer > 1.0f) {
+            float promptPulse = 0.7f + 0.3f * std::sin(endScreenTimer * 5.0f);
+            glColor3f(1.0f * promptPulse, 0.9f * promptPulse, 0.2f * promptPulse);
+            sprintf(buffer, "Press R to restart");
+            glRasterPos2f(540, 240);
+            for (char* c = buffer; *c != '\0'; c++) {
+                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+            }
         }
     } else if (state == Level2State::FINALE) {
         glColor3f(1.0f, 1.0f, 0.0f);

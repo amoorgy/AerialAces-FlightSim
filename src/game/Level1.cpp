@@ -68,7 +68,8 @@ Level1::Level1()
       startYaw(189.0f),  // Starting yaw rotation
       levelWidth(500),
       levelLength(500),
-      spawnProtectionTime(3.5f) {  // Longer spawn protection for smoother start
+      spawnProtectionTime(3.5f),  // Longer spawn protection for smoother start
+      endScreenTimer(0) {
 }
 
 Level1::~Level1() {
@@ -117,8 +118,8 @@ void Level1::init() {
     std::cout << "\n========================================" << std::endl;
     std::cout << "Level 1 - Mountain Valley Challenge" << std::endl;
     std::cout << "========================================" << std::endl;
-    std::cout << "OBJECTIVE: Collect " << totalRings << " rings and avoid terrain!" << std::endl;
-    std::cout << "WIN: Collect final ring + at least 4 total rings" << std::endl;
+    std::cout << "OBJECTIVE: Collect ALL " << totalRings << " rings and avoid terrain!" << std::endl;
+    std::cout << "WIN: Collect ALL 8 rings including the final ring" << std::endl;
     std::cout << "\nIMPROVED CONTROLS:" << std::endl;
     std::cout << "  - Very slow starting speed (0.3) for excellent control" << std::endl;
     std::cout << "  - Press '2' to accelerate up to max speed (1.2)" << std::endl;
@@ -187,7 +188,7 @@ void Level1::createRings() {
     }
     
     std::cout << "Created " << totalRings << " rings along flight path" << std::endl;
-    std::cout << "Win condition: Collect any 4 rings INCLUDING the FINAL ring!" << std::endl;
+    std::cout << "Win condition: Collect ALL 8 rings INCLUDING the FINAL ring!" << std::endl;
 }
 
 void Level1::loadModels() {
@@ -240,6 +241,9 @@ void Level1::loadModels() {
 
 void Level1::update(float deltaTime, const bool* keys) {
     if (state != Level1State::PLAYING) {
+        // Update end screen animation timer
+        endScreenTimer += deltaTime;
+        
         // Check for restart
         if (keys['r'] || keys['R']) {
             restart();
@@ -287,17 +291,19 @@ void Level1::update(float deltaTime, const bool* keys) {
         }
     }
     
-    // Check win condition - must collect the FINAL ring (last ring) + at least 4 total
+    // Check win condition - must collect ALL 8 rings including the FINAL ring
     bool finalRingCollected = rings.size() > 0 && rings[rings.size() - 1]->isCollected();
-    if (finalRingCollected && ringsCollected >= 4) {
+    if (finalRingCollected && ringsCollected >= 8) {
         state = Level1State::WON;
         timer.stop();
-        std::cout << "\n*** VICTORY! Final ring collected! ***" << std::endl;
+        endScreenTimer = 0;  // Reset animation timer
+        std::cout << "\n*** VICTORY! All rings collected! ***" << std::endl;
         std::cout << "Final Score: " << score << std::endl;
     }
     
     // Check lose condition - time out
-    if (timer.isExpired()) {
+    if (timer.isExpired() && state == Level1State::PLAYING) {
+        endScreenTimer = 0;  // Reset animation timer
         state = Level1State::LOST;
         std::cout << "\n*** Time's up! Game Over! ***" << std::endl;
     }
@@ -558,6 +564,7 @@ bool Level1::checkColorCollision() {
 void Level1::triggerCrash(float x, float y, float z) {
     player->kill();
     state = Level1State::LOST;
+    endScreenTimer = 0;  // Reset animation timer
     explosionActive = true;
     explosionTime = 0;
     explosionX = x;
@@ -919,83 +926,123 @@ void Level1::renderMessages() {
     glDisable(GL_LIGHTING);
     glDisable(GL_DEPTH_TEST);
     
-    // Semi-transparent overlay
+    // Animated overlay fade-in
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
+    float overlayAlpha = std::min(0.8f, endScreenTimer * 0.8f);
+    glColor4f(0.0f, 0.0f, 0.0f, overlayAlpha);
     glBegin(GL_QUADS);
     glVertex2f(0, 0);
     glVertex2f(1280, 0);
     glVertex2f(1280, 720);
     glVertex2f(0, 720);
     glEnd();
-    glDisable(GL_BLEND);
     
     char buffer[128];
+    float pulse = 0.8f + 0.2f * std::sin(endScreenTimer * 3.0f);  // Pulsing effect
+    float slideIn = std::min(1.0f, endScreenTimer * 1.5f);  // Slide-in animation
     
     if (state == Level1State::WON) {
-        // Victory message
-        glColor3f(0.2f, 1.0f, 0.2f);
+        // Victory message with glow and pulse
+        float glowIntensity = 0.5f + 0.5f * std::sin(endScreenTimer * 4.0f);
+        
+        // Glow effect
+        glColor4f(0.2f, 1.0f, 0.2f, glowIntensity * 0.3f);
+        sprintf(buffer, "VICTORY!");
+        for (int i = -2; i <= 2; i++) {
+            for (int j = -2; j <= 2; j++) {
+                glRasterPos2f(560 + i * 2, 420 + j * 2);
+                for (char* c = buffer; *c != '\0'; c++) {
+                    glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+                }
+            }
+        }
+        
+        // Main text with pulse
+        glColor3f(0.2f * pulse, 1.0f * pulse, 0.2f * pulse);
         sprintf(buffer, "VICTORY!");
         glRasterPos2f(560, 420);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);  // White color
+        // Slide-in details from left
+        glColor3f(1.0f * slideIn, 1.0f * slideIn, 1.0f * slideIn);
         sprintf(buffer, "All rings collected!");
-        glRasterPos2f(520, 380);
+        glRasterPos2f(520 - (1.0f - slideIn) * 200, 380);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        sprintf(buffer, "Final Score: %d", score);
-        glRasterPos2f(540, 340);
+        // Animated score counter
+        int displayScore = (int)(score * std::min(1.0f, endScreenTimer));
+        sprintf(buffer, "Final Score: %d", displayScore);
+        glRasterPos2f(540 - (1.0f - slideIn) * 200, 340);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
         sprintf(buffer, "Time Remaining: %.1f seconds", timer.getTime());
-        glRasterPos2f(490, 300);
+        glRasterPos2f(490 - (1.0f - slideIn) * 200, 300);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        // Next level prompt
-        glColor3f(0.2f, 1.0f, 1.0f);  // Cyan color
-        sprintf(buffer, "Press L to continue to Level 2");
-        glRasterPos2f(480, 220);
-        for (char* c = buffer; *c != '\0'; c++) {
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        // Pulsing next level prompt
+        if (endScreenTimer > 1.0f) {
+            float promptPulse = 0.7f + 0.3f * std::sin(endScreenTimer * 5.0f);
+            glColor3f(0.2f * promptPulse, 1.0f * promptPulse, 1.0f * promptPulse);
+            sprintf(buffer, "Press L to continue to Level 2");
+            glRasterPos2f(480, 220);
+            for (char* c = buffer; *c != '\0'; c++) {
+                glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+            }
         }
     } else if (state == Level1State::LOST) {
-        // Game over message
-        glColor3f(1.0f, 0.2f, 0.2f);
+        // Game over message with red glow
+        float glowIntensity = 0.5f + 0.5f * std::sin(endScreenTimer * 4.0f);
+        
+        // Red glow effect
+        glColor4f(1.0f, 0.0f, 0.0f, glowIntensity * 0.3f);
+        sprintf(buffer, "GAME OVER");
+        for (int i = -2; i <= 2; i++) {
+            for (int j = -2; j <= 2; j++) {
+                glRasterPos2f(540 + i * 2, 420 + j * 2);
+                for (char* c = buffer; *c != '\0'; c++) {
+                    glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+                }
+            }
+        }
+        
+        // Main text with pulse
+        glColor3f(1.0f * pulse, 0.2f * pulse, 0.2f * pulse);
         sprintf(buffer, "GAME OVER");
         glRasterPos2f(540, 420);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
         
-        glColor3f(1.0f, 1.0f, 1.0f);  // White color
+        // Slide-in details
+        glColor3f(1.0f * slideIn, 1.0f * slideIn, 1.0f * slideIn);
         if (timer.isExpired()) {
             sprintf(buffer, "Time ran out!");
         } else {
             sprintf(buffer, "You crashed into the terrain!");
         }
-        glRasterPos2f(500, 380);
+        glRasterPos2f(500 - (1.0f - slideIn) * 200, 380);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
         sprintf(buffer, "Rings collected: %d / %d", ringsCollected, totalRings);
-        glRasterPos2f(510, 340);
+        glRasterPos2f(510 - (1.0f - slideIn) * 200, 340);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        sprintf(buffer, "Score: %d", score);
-        glRasterPos2f(570, 300);
+        int displayScore = (int)(score * std::min(1.0f, endScreenTimer));
+        sprintf(buffer, "Score: %d", displayScore);
+        glRasterPos2f(570 - (1.0f - slideIn) * 200, 300);
         for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }

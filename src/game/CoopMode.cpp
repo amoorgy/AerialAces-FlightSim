@@ -49,9 +49,8 @@ void CoopMode::init() {
     std::cout << "========================================" << std::endl;
     std::cout << "      CO-OP DOGFIGHT MODE              " << std::endl;
     std::cout << "========================================" << std::endl;
-    std::cout << "Player 1 (Red): WASD + QE" << std::endl;
-    std::cout << "Player 2 (Blue): IJKL + UO" << std::endl;
-    std::cout << "Left-Click to fire missiles" << std::endl;
+    std::cout << "Player 1 (Red): WASD + QE + Left-Click to fire" << std::endl;
+    std::cout << "Player 2 (Blue): IJKL + UO + Right-Click to fire" << std::endl;
     std::cout << std::endl;
     
     // Create players at opposite ends of arena
@@ -788,9 +787,11 @@ void CoopMode::restart() {
 
 void CoopMode::handleMouse(int button, int buttonState, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && buttonState == GLUT_DOWN) {
-        // Fire missiles for both players on left click
-        // In a real implementation, you'd want separate fire buttons
+        // Player 1 fires with left-click
         fireMissilePlayer1();
+    }
+    if (button == GLUT_RIGHT_BUTTON && buttonState == GLUT_DOWN) {
+        // Player 2 fires with right-click
         fireMissilePlayer2();
     }
 }

@@ -137,6 +137,9 @@ private:
     float nearMissTimer;
     bool nearMissDetected;
     
+    // End screen animation
+    float endScreenTimer;
+    
     // Audio paths
     std::string explosionSoundPath;
     std::string lockOnSoundPath;

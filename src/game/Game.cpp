@@ -69,7 +69,7 @@ void Game::update(float dt) {
     // Handle menu state
     if (state == GameState::MENU) {
         if (menuSystem) {
-            menuSystem->update(dt, input.getKeys());
+            menuSystem->update(dt, input.getKeys(), input.isSpecialKeyPressed(GLUT_KEY_UP), input.isSpecialKeyPressed(GLUT_KEY_DOWN));
             
             if (menuSystem->isOptionConfirmed()) {
                 MenuOption option = menuSystem->getSelectedOption();
@@ -149,6 +149,13 @@ void Game::update(float dt) {
 }
 
 void Game::render() {
+    // Render menu if in menu state
+    if (state == GameState::MENU && menuSystem) {
+        menuSystem->render();
+        glutSwapBuffers();
+        return;
+    }
+    
     if (currentLevel) {
         currentLevel->render();
     }

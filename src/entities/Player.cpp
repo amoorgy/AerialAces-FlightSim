@@ -180,12 +180,12 @@ void Player::update(float deltaTime, const bool* keys) {
 void Player::applyInput(const bool* keys, float deltaTime) {
     if (!alive) return;
     
-    // Pitch control (W/S) - Flight sim style: W = climb (nose up), S = dive (nose down)
+    // Pitch control (W/S) - INVERTED Flight sim style: W = dive (nose down), S = climb (nose up)
     if (keys['w'] || keys['W']) {
-        pitch -= pitchSpeed * deltaTime;  // W = nose up (climb)
+        pitch += pitchSpeed * deltaTime;  // W = nose down (dive)
     }
     if (keys['s'] || keys['S']) {
-        pitch += pitchSpeed * deltaTime;  // S = nose down (dive)
+        pitch -= pitchSpeed * deltaTime;  // S = nose up (climb)
     }
     
     // Roll control (A/D) - Normal: A = roll left, D = roll right

@@ -71,6 +71,9 @@ private:
     // Spawn protection
     float spawnProtectionTime;  // Seconds of invincibility after spawn
     
+    // End screen animation
+    float endScreenTimer;       // Timer for end screen animations
+    
     // Lighthouses with rotating beams
     std::vector<Obstacle*> lighthouses;
     void createLighthouses();
