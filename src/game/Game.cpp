@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "Level1.h"
 #include "Level2.h"
+#include "CoopMode.h"
 #include <iostream>
 #include <cstdlib>
 
@@ -18,6 +19,7 @@ Game::Game()
     : state(GameState::MENU),
       currentLevel(nullptr),
       currentLevelIndex(0),
+      menuSystem(nullptr),
       deltaTime(0.016f),
       windowWidth(1280),
       windowHeight(720),
@@ -34,25 +36,6 @@ void Game::init() {
     std::cout << "    TOP GUN MAVERICK FLIGHT SIMULATOR  " << std::endl;
     std::cout << "========================================" << std::endl;
     std::cout << std::endl;
-    std::cout << "Controls:" << std::endl;
-    std::cout << "  W/S    : Pitch Up/Down" << std::endl;
-    std::cout << "  A/D    : Roll Left/Right" << std::endl;
-    std::cout << "  Q/E    : Yaw Left/Right" << std::endl;
-    std::cout << "  1/2    : Decrease/Increase Speed" << std::endl;
-    std::cout << "  SPACE  : Barrel Roll" << std::endl;
-    std::cout << "  C      : Toggle Camera" << std::endl;
-    std::cout << "  N      : Toggle Day/Night" << std::endl;
-    std::cout << "  G      : Print Debug Position" << std::endl;
-    std::cout << "  R      : Restart Level" << std::endl;
-    std::cout << "  P      : Pause" << std::endl;
-    std::cout << "  L      : Next Level (when Level 1 complete)" << std::endl;
-    std::cout << "  ESC    : Quit" << std::endl;
-    std::cout << std::endl;
-    std::cout << "Mouse:" << std::endl;
-    std::cout << "  Left-click + drag : Orbit camera (3rd person)" << std::endl;
-    std::cout << "  Right-click       : Toggle camera view" << std::endl;
-    std::cout << "  Left-click        : Fire Missile (Level 2, when locked)" << std::endl;
-    std::cout << std::endl;
     
     // OpenGL initialization
     glEnable(GL_DEPTH_TEST);
@@ -66,9 +49,11 @@ void Game::init() {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     
-    // Load Level 2 for testing
-    loadLevel(2);
-    state = GameState::PLAYING;
+    // Create menu system
+    menuSystem = new MenuSystem();
+    state = GameState::MENU;
+    
+    std::cout << "Use UP/DOWN arrows to navigate menu, ENTER to select" << std::endl;
 }
 
 void Game::update(float dt) {
@@ -79,6 +64,33 @@ void Game::update(float dt) {
         std::cout << "Exiting game..." << std::endl;
         cleanup();
         exit(0);
+    }
+    
+    // Handle menu state
+    if (state == GameState::MENU) {
+        if (menuSystem) {
+            menuSystem->update(dt, input.getKeys());
+            
+            if (menuSystem->isOptionConfirmed()) {
+                MenuOption option = menuSystem->getSelectedOption();
+                menuSystem->resetConfirmation();
+                
+                if (option == MenuOption::SINGLE_PLAYER) {
+                    std::cout << "Starting Single Player mode..." << std::endl;
+                    loadLevel(1);
+                    state = GameState::PLAYING;
+                } else if (option == MenuOption::COOP_MODE) {
+                    std::cout << "Starting Co-op mode..." << std::endl;
+                    loadCoopMode();
+                    state = GameState::COOP_MODE;
+                } else if (option == MenuOption::EXIT) {
+                    std::cout << "Exiting game..." << std::endl;
+                    cleanup();
+                    exit(0);
+                }
+            }
+        }
+        return;
     }
     
     // Handle pause toggle
@@ -95,7 +107,7 @@ void Game::update(float dt) {
         return;  // Don't update game logic when paused
     }
     
-    if (state == GameState::PLAYING && currentLevel) {
+    if ((state == GameState::PLAYING || state == GameState::COOP_MODE) && currentLevel) {
         currentLevel->update(dt, input.getKeys());
         
         // Check for level completion
@@ -203,10 +215,21 @@ void Game::cleanup() {
         delete currentLevel;
         currentLevel = nullptr;
     }
+    
+    if (menuSystem) {
+        delete menuSystem;
+        menuSystem = nullptr;
+    }
 }
 
 void Game::handleKeyPress(unsigned char key, bool pressed) {
     input.setKey(key, pressed);
+    
+    // Handle menu input
+    if (state == GameState::MENU && menuSystem) {
+        menuSystem->handleKeyPress(key, pressed);
+        return;
+    }
     
     // Handle camera toggle on key press
     if (pressed && (key == 'c' || key == 'C')) {
@@ -328,6 +351,29 @@ void Game::togglePause() {
 void Game::restartLevel() {
     if (currentLevel) {
         currentLevel->restart();
-        state = GameState::PLAYING;
+        if (state == GameState::COOP_MODE) {
+            state = GameState::COOP_MODE;
+        } else {
+            state = GameState::PLAYING;
+        }
     }
+}
+
+void Game::loadCoopMode() {
+    // Clean up existing level
+    if (currentLevel) {
+        currentLevel->cleanup();
+        delete currentLevel;
+        currentLevel = nullptr;
+    }
+    
+    std::cout << "Loading Co-op Dogfight Mode..." << std::endl;
+    currentLevel = new CoopMode();
+    
+    if (currentLevel) {
+        currentLevel->init();
+        std::cout << "Loaded: " << currentLevel->getName() << std::endl;
+    }
+    
+    state = GameState::COOP_MODE;
 }

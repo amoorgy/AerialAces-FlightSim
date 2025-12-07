@@ -139,10 +139,12 @@ void Level2::init() {
 void Level2::loadModels() {
     std::cout << "Level2: Loading models..." << std::endl;
     
-    // Load player aircraft model
+    // Load player aircraft model with LARGE scale for visibility
     std::string playerModelPath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.obj");
-    if (!player->loadModel(playerModelPath, 0.15f)) {
+    if (!player->loadModel(playerModelPath, 1.0f)) {  // Large scale for visibility
         std::cerr << "Level2: Could not load player model, using primitives" << std::endl;
+    } else {
+        std::cout << "Level2: Player model loaded successfully with scale 0.5" << std::endl;
     }
     
     std::cout << "Level2: Models loaded!" << std::endl;
@@ -151,14 +153,14 @@ void Level2::loadModels() {
 void Level2::createTerrain() {
     std::cout << "Level2: Creating terrain..." << std::endl;
     
-    // Create just ONE mountain with model for fast loading
+    // Create just ONE mountain with model for fast loading - LARGER scale for visibility
     std::string mountainModelPath = findAssetPath("assets/mountains/mountains/mountains.obj");
     
-    Obstacle* mountain = new Obstacle(0, 0, -250, 50, 80, 50, ObstacleType::MOUNTAIN);
-    bool modelLoaded = mountain->loadModel(mountainModelPath, 0.3f);  // Smaller scale = faster
+    Obstacle* mountain = new Obstacle(0, 0, -250, 100, 120, 100, ObstacleType::MOUNTAIN);
+    bool modelLoaded = mountain->loadModel(mountainModelPath, 2.0f);  // Large scale for visibility
     
     if (modelLoaded) {
-        std::cout << "Level2: Mountain model loaded!" << std::endl;
+        std::cout << "Level2: Mountain model loaded with scale 1.0!" << std::endl;
         terrain.push_back(mountain);
     } else {
         std::cout << "Level2: Mountain model not found, using primitive" << std::endl;
@@ -181,13 +183,17 @@ void Level2::createEnemies() {
     Enemy* enemy1 = new Enemy(-100, 100, -200, 0);
     Enemy* enemy2 = new Enemy(100, 110, -180, 180);
     
-    // Load enemy models - use player plane model for enemies
+    // Load enemy models with LARGER scale for visibility
     std::string enemyModelPath = findAssetPath("assets/Japan Plane/14082_WWII_Plane_Japan_Kawasaki_Ki-61_v1_L2.obj");
-    if (!enemy1->loadModel(enemyModelPath, 0.15f)) {
-        std::cout << "Enemy model not found, using primitives" << std::endl;
+    if (!enemy1->loadModel(enemyModelPath, 0.5f)) {  // Increased from 0.15f to 0.5f
+        std::cout << "Enemy 1 model not found, using primitives" << std::endl;
+    } else {
+        std::cout << "Enemy 1 model loaded with scale 0.5" << std::endl;
     }
-    if (!enemy2->loadModel(enemyModelPath, 0.15f)) {
-        std::cout << "Enemy model not found, using primitives" << std::endl;
+    if (!enemy2->loadModel(enemyModelPath, 0.5f)) {  // Increased from 0.15f to 0.5f
+        std::cout << "Enemy 2 model not found, using primitives" << std::endl;
+    } else {
+        std::cout << "Enemy 2 model loaded with scale 0.5" << std::endl;
     }
     
     enemy1->setSpeed(0.7f);
@@ -206,13 +212,7 @@ void Level2::update(float deltaTime, const bool* keys) {
         }
     }
     
-    // Handle day/night toggle
-    if ((keys['n'] || keys['N']) && !nKeyWasPressed) {
-        toggleDayNight();
-        nKeyWasPressed = true;
-    } else if (!(keys['n'] || keys['N'])) {
-        nKeyWasPressed = false;
-    }
+    // Night mode removed from Level 2 - always day mode
     
     // Update player
     if (player) {
@@ -830,17 +830,17 @@ void Level2::render() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
-    // Apply camera shake if active
-    if (cameraShakeTimer > 0) {
-        float shakeX = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity;
-        float shakeY = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity;
-        float shakeZ = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity;
-        glTranslatef(shakeX, shakeY, shakeZ);
-    }
-    
-    // Set up camera
+    // Set up camera FIRST
     if (camera) {
         camera->apply();
+    }
+    
+    // Apply camera shake AFTER camera (as a view offset)
+    if (cameraShakeTimer > 0) {
+        float shakeX = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity * 0.1f;
+        float shakeY = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity * 0.1f;
+        float shakeZ = ((rand() % 200 - 100) / 100.0f) * cameraShakeIntensity * 0.1f;
+        glTranslatef(shakeX, shakeY, shakeZ);
     }
     
     // Apply lighting
@@ -861,53 +861,23 @@ void Level2::render() {
         }
     }
     
-    // Render player with glow in night mode
+    // Render player
     if (player && player->isAlive()) {
-        if (lighting && lighting->isNightMode()) {
-            GLfloat emission[] = {0.2f, 0.2f, 0.3f, 1.0f};
-            GLfloat shininess = 60.0f;
-            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
-            glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
-        }
         player->render();
-        if (lighting && lighting->isNightMode()) {
-            GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
-            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
-        }
     }
     
-    // Render enemies with red glow in night mode
-    if (lighting && lighting->isNightMode()) {
-        GLfloat emission[] = {0.5f, 0.1f, 0.1f, 1.0f};  // Red glow
-        GLfloat shininess = 80.0f;
-        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
-        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
-    }
+    // Render enemies
     for (auto* enemy : enemies) {
         if (enemy) {
             enemy->render();
         }
     }
-    if (lighting && lighting->isNightMode()) {
-        GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
-        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
-    }
     
-    // Render missiles with bright glow in night mode
-    if (lighting && lighting->isNightMode()) {
-        GLfloat emission[] = {0.8f, 0.5f, 0.0f, 1.0f};  // Orange glow
-        GLfloat shininess = 100.0f;
-        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
-        glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
-    }
+    // Render missiles
     for (auto* missile : missiles) {
         if (missile) {
             missile->render();
         }
-    }
-    if (lighting && lighting->isNightMode()) {
-        GLfloat noEmission[] = {0.0f, 0.0f, 0.0f, 1.0f};
-        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmission);
     }
     
     // Render explosions
@@ -1107,34 +1077,104 @@ void Level2::renderHUD() {
     glDisable(GL_LIGHTING);
     glDisable(GL_DEPTH_TEST);
     
-    // Draw score
+    // Draw HUD background panels
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    // Top-left panel (score and enemies)
+    glColor4f(0.0f, 0.0f, 0.0f, 0.6f);
+    glBegin(GL_QUADS);
+    glVertex2f(10, 640);
+    glVertex2f(260, 640);
+    glVertex2f(260, 710);
+    glVertex2f(10, 710);
+    glEnd();
+    
+    // Top-right panel (speed)
+    glBegin(GL_QUADS);
+    glVertex2f(1020, 640);
+    glVertex2f(1270, 640);
+    glVertex2f(1270, 710);
+    glVertex2f(1020, 710);
+    glEnd();
+    
+    // Altitude indicator (left side)
+    glBegin(GL_QUADS);
+    glVertex2f(10, 300);
+    glVertex2f(60, 300);
+    glVertex2f(60, 600);
+    glVertex2f(10, 600);
+    glEnd();
+    
+    glDisable(GL_BLEND);
+    
+    // Draw text
     glColor3f(1.0f, 1.0f, 1.0f);
-    char scoreText[64];
-    sprintf(scoreText, "Score: %d", score);
-    glRasterPos2f(20, 690);
-    for (char* c = scoreText; *c != '\0'; c++) {
+    char buffer[128];
+    
+    // Score
+    sprintf(buffer, "Score: %d", score);
+    glRasterPos2f(20, 685);
+    for (char* c = buffer; *c != '\0'; c++) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
     }
     
-    // Draw enemies remaining
-    char enemyText[64];
-    sprintf(enemyText, "Enemies: %d/%d", totalEnemies - enemiesDestroyed, totalEnemies);
-    glRasterPos2f(20, 660);
-    for (char* c = enemyText; *c != '\0'; c++) {
+    // Enemies remaining
+    sprintf(buffer, "Enemies: %d/%d", totalEnemies - enemiesDestroyed, totalEnemies);
+    glRasterPos2f(20, 658);
+    for (char* c = buffer; *c != '\0'; c++) {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+    }
+    
+    // Speed indicator
+    if (player) {
+        float speedPercent = (player->getSpeed() / 1.2f) * 100.0f;
+        sprintf(buffer, "Speed: %.2f (%.0f%%)", player->getSpeed(), speedPercent);
+        glRasterPos2f(1040, 685);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+    }
+    
+    // Altitude indicator label
+    glColor3f(0.3f, 1.0f, 0.3f);
+    sprintf(buffer, "ALT");
+    glRasterPos2f(20, 580);
+    for (char* c = buffer; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
+    }
+    
+    // Altitude bar
+    if (player) {
+        float altPercent = std::min(1.0f, player->getY() / 200.0f);
+        glColor3f(0.2f, 0.8f, 0.2f);
+        glBegin(GL_QUADS);
+        glVertex2f(20, 320);
+        glVertex2f(50, 320);
+        glVertex2f(50, 320 + altPercent * 240);
+        glVertex2f(20, 320 + altPercent * 240);
+        glEnd();
+        
+        // Altitude number
+        glColor3f(1.0f, 1.0f, 1.0f);
+        sprintf(buffer, "%.0f", player->getY());
+        glRasterPos2f(18, 305);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
+        }
     }
     
     // Draw lock-on status
     if (lockOnState != LockOnState::NONE) {
         if (lockOnState == LockOnState::ACQUIRING) {
             glColor3f(1.0f, 1.0f, 0.0f);  // Yellow
-            sprintf(scoreText, "LOCKING... %d%%", (int)(lockOnProgress * 100));
+            sprintf(buffer, "LOCKING... %d%%", (int)(lockOnProgress * 100));
         } else {
             glColor3f(0.0f, 1.0f, 0.0f);  // Green
-            sprintf(scoreText, "LOCKED");
+            sprintf(buffer, "LOCKED");
         }
         glRasterPos2f(540, 50);
-        for (char* c = scoreText; *c != '\0'; c++) {
+        for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
     }
@@ -1147,6 +1187,14 @@ void Level2::renderHUD() {
     glVertex2f(640, 355);
     glVertex2f(640, 365);
     glEnd();
+    
+    // Controls hint at bottom
+    glColor3f(0.7f, 0.7f, 0.7f);
+    sprintf(buffer, "W/S: Pitch | A/D: Roll | Q/E: Yaw | 1/2: Speed | Left-Click: Fire (when locked) | C: Camera");
+    glRasterPos2f(280, 20);
+    for (char* c = buffer; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
+    }
     
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_LIGHTING);
@@ -1311,6 +1359,8 @@ void Level2::renderMissileWarning() {
 }
 
 void Level2::renderMessages() {
+    if (state == Level2State::PLAYING) return;
+    
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
@@ -1323,25 +1373,97 @@ void Level2::renderMessages() {
     glDisable(GL_LIGHTING);
     glDisable(GL_DEPTH_TEST);
     
+    // Semi-transparent overlay for end screens
+    if (state == Level2State::WON || state == Level2State::LOST) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glColor4f(0.0f, 0.0f, 0.0f, 0.7f);
+        glBegin(GL_QUADS);
+        glVertex2f(0, 0);
+        glVertex2f(1280, 0);
+        glVertex2f(1280, 720);
+        glVertex2f(0, 720);
+        glEnd();
+        glDisable(GL_BLEND);
+    }
+    
+    char buffer[128];
+    
     if (state == Level2State::WON) {
-        glColor3f(0.0f, 1.0f, 0.0f);
-        const char* winText = "MISSION ACCOMPLISHED!";
-        glRasterPos2f(480, 360);
-        for (const char* c = winText; *c != '\0'; c++) {
+        // Victory message
+        glColor3f(0.2f, 1.0f, 0.2f);
+        sprintf(buffer, "MISSION ACCOMPLISHED!");
+        glRasterPos2f(480, 420);
+        for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
         }
+        
+        glColor3f(1.0f, 1.0f, 1.0f);
+        sprintf(buffer, "All enemies destroyed!");
+        glRasterPos2f(520, 380);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+        
+        sprintf(buffer, "Final Score: %d", score);
+        glRasterPos2f(540, 340);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+        
+        sprintf(buffer, "Enemies Destroyed: %d", enemiesDestroyed);
+        glRasterPos2f(510, 300);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+        
+        // Restart hint
+        glColor3f(1.0f, 0.9f, 0.2f);
+        sprintf(buffer, "Press R to restart");
+        glRasterPos2f(540, 220);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
     } else if (state == Level2State::LOST) {
-        glColor3f(1.0f, 0.0f, 0.0f);
-        const char* loseText = "MISSION FAILED";
-        glRasterPos2f(520, 360);
-        for (const char* c = loseText; *c != '\0'; c++) {
+        // Game over message
+        glColor3f(1.0f, 0.2f, 0.2f);
+        sprintf(buffer, "MISSION FAILED");
+        glRasterPos2f(520, 420);
+        for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+        }
+        
+        glColor3f(1.0f, 1.0f, 1.0f);
+        sprintf(buffer, "You were shot down!");
+        glRasterPos2f(520, 380);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+        
+        sprintf(buffer, "Enemies Destroyed: %d / %d", enemiesDestroyed, totalEnemies);
+        glRasterPos2f(490, 340);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+        
+        sprintf(buffer, "Score: %d", score);
+        glRasterPos2f(570, 300);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+        }
+        
+        // Restart hint
+        glColor3f(1.0f, 0.9f, 0.2f);
+        sprintf(buffer, "Press R to restart");
+        glRasterPos2f(540, 240);
+        for (char* c = buffer; *c != '\0'; c++) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
     } else if (state == Level2State::FINALE) {
         glColor3f(1.0f, 1.0f, 0.0f);
-        const char* finaleText = "DESTROY THE FINAL TARGET!";
+        sprintf(buffer, "DESTROY THE FINAL TARGET!");
         glRasterPos2f(450, 650);
-        for (const char* c = finaleText; *c != '\0'; c++) {
+        for (char* c = buffer; *c != '\0'; c++) {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
     }

@@ -153,6 +153,11 @@ public:
     // Getter for speed
     float getSpeed() const { return speed; }
     
+    // Setters for position (for boundary enforcement in co-op)
+    void setX(float newX) { x = newX; }
+    void setY(float newY) { y = newY; }
+    void setZ(float newZ) { z = newZ; }
+    
     // Bounding box (for AABB collision with obstacles)
     float getMinX() const { return x - boundingRadius; }
     float getMaxX() const { return x + boundingRadius; }

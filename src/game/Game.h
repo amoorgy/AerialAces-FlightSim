@@ -2,6 +2,7 @@
 #define GAME_H
 
 #include "Level.h"
+#include "MenuSystem.h"
 #include "../utils/Input.h"
 
 /**
@@ -13,7 +14,8 @@ enum class GameState {
     PLAYING,    // In level
     PAUSED,     // Game paused
     GAME_OVER,  // Game ended (win or lose)
-    LEVEL_COMPLETE // Level completed, transition to next
+    LEVEL_COMPLETE, // Level completed, transition to next
+    COOP_MODE   // Co-op split-screen mode
 };
 
 /**
@@ -32,6 +34,9 @@ private:
     Level* currentLevel;
     int currentLevelIndex;
     static const int MAX_LEVELS = 2;
+    
+    // Menu system
+    MenuSystem* menuSystem;
     
     // Input handler
     Input input;
@@ -129,6 +134,11 @@ public:
      * Restart current level
      */
     void restartLevel();
+    
+    /**
+     * Load co-op mode
+     */
+    void loadCoopMode();
     
     /**
      * Render pause overlay

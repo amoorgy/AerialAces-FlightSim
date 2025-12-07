@@ -64,6 +64,8 @@ set(SOURCES
     src/game/Game.cpp
     src/game/Level1.cpp
     src/game/Level2.cpp
+    src/game/MenuSystem.cpp
+    src/game/CoopMode.cpp
     src/entities/Player.cpp
     src/entities/Collectible.cpp
     src/entities/Obstacle.cpp
@@ -84,6 +86,8 @@ set(HEADERS
     src/game/Level.h
     src/game/Level1.h
     src/game/Level2.h
+    src/game/MenuSystem.h
+    src/game/CoopMode.h
     src/entities/Player.h
     src/entities/Collectible.h
     src/entities/Obstacle.h

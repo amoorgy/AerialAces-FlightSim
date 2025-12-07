@@ -29,7 +29,8 @@ Missile::Missile()
       maxTrailParticles(30),
       missileModel(nullptr),
       useModel(false),
-      rotationAngle(0) {
+      rotationAngle(0),
+      ownerID(-1) {
 }
 
 Missile::Missile(float startX, float startY, float startZ,
@@ -48,7 +49,8 @@ Missile::Missile(float startX, float startY, float startZ,
       maxTrailParticles(30),
       missileModel(nullptr),
       useModel(false),
-      rotationAngle(0) {
+      rotationAngle(0),
+      ownerID(-1) {
     
     // Normalize direction vector
     float length = std::sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);

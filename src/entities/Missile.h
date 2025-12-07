@@ -118,7 +118,19 @@ public:
      */
     void setSpeed(float newSpeed) { speed = newSpeed; }
     
+    /**
+     * Set owner (0 = player1, 1 = player2, etc.)
+     */
+    void setOwner(int owner) { ownerID = owner; }
+    
+    /**
+     * Get owner ID
+     */
+    int getOwner() const { return ownerID; }
+    
 private:
+    int ownerID;  // For multiplayer tracking
+    
     /**
      * Spawn a new trail particle
      */
