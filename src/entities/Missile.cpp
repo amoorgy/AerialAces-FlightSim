@@ -1,4 +1,6 @@
 #include "Missile.h"
+#include "Player.h"
+#include "Enemy.h"
 #include <cmath>
 #include <iostream>
 #include <algorithm>
@@ -30,7 +32,11 @@ Missile::Missile()
       missileModel(nullptr),
       useModel(false),
       rotationAngle(0),
-      ownerID(-1) {
+      ownerID(-1),
+      targetPlayer(nullptr),
+      targetEnemy(nullptr),
+      turnRate(30.0f),
+      isHoming(false) {
 }
 
 Missile::Missile(float startX, float startY, float startZ,
@@ -43,14 +49,18 @@ Missile::Missile(float startX, float startY, float startZ,
       playerOwned(fromPlayer),
       lifetime(0),
       maxLifetime(10.0f),
-      boundingRadius(0.8f),
+      boundingRadius(1.5f),
       trailSpawnTimer(0),
       trailSpawnInterval(0.05f),
       maxTrailParticles(30),
       missileModel(nullptr),
       useModel(false),
       rotationAngle(0),
-      ownerID(-1) {
+      ownerID(-1),
+      targetPlayer(nullptr),
+      targetEnemy(nullptr),
+      turnRate(30.0f),
+      isHoming(false) {
     
     // Normalize direction vector
     float length = std::sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
@@ -99,6 +109,58 @@ void Missile::update(float deltaTime) {
     if (lifetime >= maxLifetime) {
         active = false;
         return;
+    }
+    
+    // Homing logic - adjust direction toward target
+    if (isHoming) {
+        float tx = 0, ty = 0, tz = 0;
+        bool hasTarget = false;
+        
+        // Check Player target
+        if (targetPlayer != nullptr) {
+            targetPlayer->getPosition(tx, ty, tz);
+            if (targetPlayer->isAlive()) {
+                hasTarget = true;
+            }
+        }
+        // Check Enemy target
+        else if (targetEnemy != nullptr) {
+            targetEnemy->getPosition(tx, ty, tz);
+            if (targetEnemy->isAlive()) {
+                hasTarget = true;
+            }
+        }
+        
+        if (hasTarget) {
+            // Calculate desired direction to target
+            float desiredDirX = tx - x;
+            float desiredDirY = ty - y;
+            float desiredDirZ = tz - z;
+            
+            // Normalize desired direction
+            float length = std::sqrt(desiredDirX * desiredDirX + desiredDirY * desiredDirY + desiredDirZ * desiredDirZ);
+            if (length > 0.001f) {
+                desiredDirX /= length;
+                desiredDirY /= length;
+                desiredDirZ /= length;
+                
+                // Proportional navigation - gradually turn toward target
+                float turnAmount = (turnRate * M_PI / 180.0f) * deltaTime;
+                
+                // Blend current direction with desired direction
+                dirX += (desiredDirX - dirX) * turnAmount;
+                dirY += (desiredDirY - dirY) * turnAmount;
+                dirZ += (desiredDirZ - dirZ) * turnAmount;
+                
+                // Re-normalize direction vector
+                length = std::sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+                if (length > 0.001f) {
+                    dirX /= length;
+                    dirY /= length;
+                    dirZ /= length;
+                }
+            }
+        }
     }
     
     // Update position
@@ -245,4 +307,14 @@ void Missile::renderTrail() const {
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glEnable(GL_LIGHTING);
+}
+
+void Missile::setTargetPlayer(class Player* target) {
+    targetPlayer = target;
+    targetEnemy = nullptr;  // Clear enemy target
+}
+
+void Missile::setTargetEnemy(class Enemy* target) {
+    targetEnemy = target;
+    targetPlayer = nullptr;  // Clear player target
 }

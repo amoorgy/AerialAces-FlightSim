@@ -49,6 +49,12 @@ private:
     // Collision
     float boundingRadius;
     
+    // Homing/tracking system
+    class Player* targetPlayer;    // Target to track (forward declaration)
+    class Enemy* targetEnemy;      // Target enemy to track
+    float turnRate;                // Degrees per second turning ability
+    bool isHoming;                 // Enable/disable tracking
+    
     // Trail particles
     std::vector<ParticleTrail> trail;
     float trailSpawnTimer;
@@ -127,6 +133,26 @@ public:
      * Get owner ID
      */
     int getOwner() const { return ownerID; }
+    
+    /**
+     * Set target for homing (Player version)
+     */
+    void setTargetPlayer(class Player* target);
+    
+    /**
+     * Set target for homing (Enemy version)
+     */
+    void setTargetEnemy(class Enemy* target);
+    
+    /**
+     * Enable/disable homing behavior
+     */
+    void setHoming(bool enabled) { isHoming = enabled; }
+    
+    /**
+     * Set turn rate for homing (degrees per second)
+     */
+    void setTurnRate(float rate) { turnRate = rate; }
     
 private:
     int ownerID;  // For multiplayer tracking

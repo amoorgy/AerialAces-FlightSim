@@ -121,6 +121,7 @@ void Obstacle::render() const {
         glTranslatef(x, y, z);
         
         // For ground/landscape type, orient as a horizontal ground plane
+        // Mountains should NOT be rotated - they are already properly oriented
         if (type == ObstacleType::GROUND) {
             // The terrain model needs to be oriented as a flat ground surface
             // facing upward (Y-up). Most landscape models are already Y-up,
@@ -128,6 +129,7 @@ void Obstacle::render() const {
             // Scale uniformly on XZ plane for proper ground coverage
             glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);  // Rotate to lay flat if model is vertical
         }
+        // MOUNTAIN type: No rotation - use model's native orientation
         
         // Set terrain color (dimmer sandy/earth tones)
         glColor3f(0.55f, 0.50f, 0.35f);  // Dimmer sandy color

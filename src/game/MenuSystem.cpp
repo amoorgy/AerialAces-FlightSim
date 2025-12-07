@@ -1,5 +1,6 @@
 #include "MenuSystem.h"
 #include <iostream>
+#include <cmath>
 
 #ifdef __APPLE__
 #include <OpenGL/gl.h>
@@ -8,6 +9,10 @@
 #else
 #include <GL/glew.h>
 #include <GL/freeglut.h>
+#endif
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
 #endif
 
 MenuSystem::MenuSystem()
@@ -90,102 +95,242 @@ void MenuSystem::render() {
     glDisable(GL_LIGHTING);
     glDisable(GL_DEPTH_TEST);
     
-    // Animated gradient background
+    // Animated gradient background - Beautiful Sky Blue Theme
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    float bgShift = sin(animationTimer * 0.5f) * 0.08f;
+    float bgShift = sin(animationTimer * 0.3f) * 0.05f;
+    
+    // Sky gradient - vibrant sky blue
     glBegin(GL_QUADS);
-    // Lighter sky gradient - sunset/dusk theme
-    glColor3f(0.15f + bgShift, 0.25f + bgShift, 0.45f + bgShift * 0.5f);  // Lighter blue top
+    // Bright sky blue at top
+    glColor3f(0.35f + bgShift, 0.65f + bgShift, 0.95f + bgShift);
     glVertex2f(0, 720);
     glVertex2f(1280, 720);
-    glColor3f(0.25f + bgShift, 0.20f + bgShift, 0.40f + bgShift * 0.5f);  // Purple-pink middle
-    glVertex2f(1280, 360);
-    glVertex2f(0, 360);
+    // Deeper blue in middle
+    glColor3f(0.45f + bgShift, 0.70f + bgShift, 1.0f);
+    glVertex2f(1280, 400);
+    glVertex2f(0, 400);
     glEnd();
     
     glBegin(GL_QUADS);
-    glColor3f(0.25f + bgShift, 0.20f + bgShift, 0.40f + bgShift * 0.5f);  // Purple-pink middle
-    glVertex2f(0, 360);
-    glVertex2f(1280, 360);
-    glColor3f(0.35f + bgShift, 0.15f + bgShift, 0.25f + bgShift * 0.5f);  // Warmer bottom
+    // Deeper blue in middle
+    glColor3f(0.45f + bgShift, 0.70f + bgShift, 1.0f);
+    glVertex2f(0, 400);
+    glVertex2f(1280, 400);
+    // Light horizon blue at bottom
+    glColor3f(0.60f + bgShift, 0.80f + bgShift, 0.98f + bgShift);
     glVertex2f(1280, 0);
     glVertex2f(0, 0);
     glEnd();
     
-    // Animated stars/particles in background
-    glPointSize(2.0f);
-    glBegin(GL_POINTS);
-    for (int i = 0; i < 80; i++) {
-        float x = (i * 127 % 1280);
-        float y = (i * 73 % 720);
-        float twinkle = 0.4f + 0.6f * sin(animationTimer * 2.0f + i * 0.5f);
-        glColor4f(1.0f, 1.0f, 0.9f, twinkle * 0.7f);
-        glVertex2f(x, y);
+    // Fluffy animated clouds
+    glColor4f(1.0f, 1.0f, 1.0f, 0.7f);
+    for (int i = 0; i < 5; i++) {
+        float cloudX = (animationTimer * 15.0f + i * 280.0f);
+        while (cloudX > 1400.0f) cloudX -= 1500.0f;
+        float cloudY = 600.0f - i * 80.0f;
+        float wobble = sin(animationTimer * 0.7f + i) * 10.0f;
+        
+        // Draw fluffy cloud shape
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(cloudX + wobble, cloudY);
+        for (int j = 0; j <= 12; j++) {
+            float angle = j * 3.14159f * 2.0f / 12.0f;
+            float radius = 35.0f + 15.0f * sin(j * 1.5f);
+            glVertex2f(cloudX + wobble + cos(angle) * radius, cloudY + sin(angle) * radius * 0.6f);
+        }
+        glEnd();
+    }
+    
+    // Sun rays effect
+    glColor4f(1.0f, 0.98f, 0.7f, 0.15f);
+    float sunX = 1100.0f;
+    float sunY = 600.0f;
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4f(1.0f, 0.98f, 0.5f, 0.3f);
+    glVertex2f(sunX, sunY);
+    glColor4f(1.0f, 0.98f, 0.7f, 0.0f);
+    for (int i = 0; i <= 12; i++) {
+        float angle = i * 3.14159f * 2.0f / 12.0f + animationTimer * 0.3f;
+        glVertex2f(sunX + cos(angle) * 250.0f, sunY + sin(angle) * 250.0f);
     }
     glEnd();
-    glPointSize(1.0f);
     
-    // Animated background planes - simple triangular silhouettes
-    // Plane 1 - moving right
-    float plane1Alpha = 0.3f + 0.1f * sin(animationTimer * 1.5f);
-    glColor4f(0.8f, 0.9f, 1.0f, plane1Alpha);
+    // Birds flying in formation
+    glLineWidth(2.0f);
+    for (int flock = 0; flock < 2; flock++) {
+        float birdX = (animationTimer * 25.0f + flock * 400.0f);
+        while (birdX > 1400.0f) birdX -= 1500.0f;
+        float birdY = 550.0f - flock * 150.0f;
+        
+        for (int b = 0; b < 5; b++) {
+            float bx = birdX + b * 30.0f;
+            float by = birdY - abs(b - 2) * 15.0f;
+            float flap = sin(animationTimer * 8.0f + b * 0.5f) * 3.0f;
+            
+            glColor4f(0.2f, 0.2f, 0.3f, 0.6f);
+            glBegin(GL_LINES);
+            // Left wing
+            glVertex2f(bx, by);
+            glVertex2f(bx - 8, by + 6 + flap);
+            // Right wing
+            glVertex2f(bx, by);
+            glVertex2f(bx + 8, by + 6 + flap);
+            glEnd();
+        }
+    }
+    glLineWidth(1.0f);
+    
+    // Animated jet fighters - detailed silhouettes with afterburners!
+    // Plane 1 - moving right with barrel roll effect
+    float plane1Alpha = 0.5f + 0.15f * sin(animationTimer * 1.5f);
+    float roll1 = sin(animationTimer * 0.8f) * 15.0f;
+    
+    glPushMatrix();
+    glTranslatef(plane1X, plane1Y, 0);
+    glRotatef(roll1, 1, 0, 0);
+    
+    // Fighter jet body - dark blue
+    glColor4f(0.2f, 0.3f, 0.6f, plane1Alpha);
     glBegin(GL_TRIANGLES);
-    // Fuselage
-    glVertex2f(plane1X, plane1Y);
-    glVertex2f(plane1X + 60, plane1Y + 8);
-    glVertex2f(plane1X + 60, plane1Y - 8);
-    // Wings
-    glVertex2f(plane1X + 20, plane1Y);
-    glVertex2f(plane1X + 40, plane1Y + 25);
-    glVertex2f(plane1X + 45, plane1Y);
-    glVertex2f(plane1X + 20, plane1Y);
-    glVertex2f(plane1X + 40, plane1Y - 25);
-    glVertex2f(plane1X + 45, plane1Y);
-    // Tail
-    glVertex2f(plane1X, plane1Y);
-    glVertex2f(plane1X + 5, plane1Y + 15);
-    glVertex2f(plane1X + 10, plane1Y);
+    // Main fuselage
+    glVertex2f(0, 0);
+    glVertex2f(70, 5);
+    glVertex2f(70, -5);
+    // Nose cone
+    glVertex2f(70, 5);
+    glVertex2f(85, 0);
+    glVertex2f(70, -5);
     glEnd();
     
-    // Plane 2 - moving left (mirrored)
-    float plane2Alpha = 0.25f + 0.08f * sin(animationTimer * 1.2f);
-    glColor4f(0.9f, 0.85f, 1.0f, plane2Alpha);
+    // Wings - swept back design
+    glColor4f(0.25f, 0.35f, 0.65f, plane1Alpha);
     glBegin(GL_TRIANGLES);
-    // Fuselage
-    glVertex2f(plane2X, plane2Y);
-    glVertex2f(plane2X - 60, plane2Y + 8);
-    glVertex2f(plane2X - 60, plane2Y - 8);
-    // Wings
-    glVertex2f(plane2X - 20, plane2Y);
-    glVertex2f(plane2X - 40, plane2Y + 25);
-    glVertex2f(plane2X - 45, plane2Y);
-    glVertex2f(plane2X - 20, plane2Y);
-    glVertex2f(plane2X - 40, plane2Y - 25);
-    glVertex2f(plane2X - 45, plane2Y);
-    // Tail
-    glVertex2f(plane2X, plane2Y);
-    glVertex2f(plane2X - 5, plane2Y + 15);
-    glVertex2f(plane2X - 10, plane2Y);
+    glVertex2f(25, 0);
+    glVertex2f(45, 30);
+    glVertex2f(55, 0);
+    glVertex2f(25, 0);
+    glVertex2f(45, -30);
+    glVertex2f(55, 0);
     glEnd();
     
-    // Vapor trails
-    glLineWidth(1.5f);
-    glColor4f(0.9f, 0.95f, 1.0f, plane1Alpha * 0.5f);
-    glBegin(GL_LINES);
-    glVertex2f(plane1X, plane1Y + 3);
-    glVertex2f(plane1X - 40, plane1Y + 3);
-    glVertex2f(plane1X, plane1Y - 3);
-    glVertex2f(plane1X - 40, plane1Y - 3);
+    // Tail fins
+    glBegin(GL_TRIANGLES);
+    glVertex2f(5, 0);
+    glVertex2f(15, 20);
+    glVertex2f(20, 0);
     glEnd();
-    glColor4f(0.9f, 0.95f, 1.0f, plane2Alpha * 0.5f);
-    glBegin(GL_LINES);
-    glVertex2f(plane2X, plane2Y + 3);
-    glVertex2f(plane2X + 40, plane2Y + 3);
-    glVertex2f(plane2X, plane2Y - 3);
-    glVertex2f(plane2X + 40, plane2Y - 3);
+    
+    // Cockpit - bright cyan
+    glColor4f(0.3f, 0.8f, 1.0f, plane1Alpha * 1.2f);
+    glBegin(GL_QUADS);
+    glVertex2f(45, 2);
+    glVertex2f(55, 2);
+    glVertex2f(55, -2);
+    glVertex2f(45, -2);
     glEnd();
+    
+    // Afterburner flames!
+    float flamePulse = 0.7f + 0.3f * sin(animationTimer * 15.0f);
+    glBegin(GL_TRIANGLES);
+    glColor4f(1.0f, 0.6f, 0.1f, flamePulse * plane1Alpha);
+    glVertex2f(0, 3);
+    glVertex2f(0, -3);
+    glColor4f(1.0f, 0.3f, 0.0f, 0.0f);
+    glVertex2f(-25, 0);
+    glEnd();
+    
+    glPopMatrix();
+    
+    // Vapor trails with turbulence
+    glLineWidth(2.5f);
+    for (int t = 0; t < 8; t++) {
+        float trailX = plane1X - t * 12.0f;
+        float trailAlpha = plane1Alpha * 0.4f * (1.0f - t / 8.0f);
+        float turbulence = sin(animationTimer * 3.0f + t * 0.5f) * 2.0f;
+        glColor4f(0.95f, 0.97f, 1.0f, trailAlpha);
+        glBegin(GL_LINES);
+        glVertex2f(trailX, plane1Y + 3 + turbulence);
+        glVertex2f(trailX - 10, plane1Y + 3 + turbulence);
+        glVertex2f(trailX, plane1Y - 3 + turbulence);
+        glVertex2f(trailX - 10, plane1Y - 3 + turbulence);
+        glEnd();
+    }
+    
+    // Plane 2 - moving left with different roll
+    float plane2Alpha = 0.45f + 0.12f * sin(animationTimer * 1.2f);
+    float roll2 = sin(animationTimer * 0.6f + 1.5f) * 12.0f;
+    
+    glPushMatrix();
+    glTranslatef(plane2X, plane2Y, 0);
+    glRotatef(roll2, 1, 0, 0);
+    
+    // Fighter jet body - dark red/maroon
+    glColor4f(0.6f, 0.2f, 0.25f, plane2Alpha);
+    glBegin(GL_TRIANGLES);
+    // Main fuselage (mirrored)
+    glVertex2f(0, 0);
+    glVertex2f(-70, 5);
+    glVertex2f(-70, -5);
+    // Nose cone
+    glVertex2f(-70, 5);
+    glVertex2f(-85, 0);
+    glVertex2f(-70, -5);
+    glEnd();
+    
+    // Wings
+    glColor4f(0.65f, 0.25f, 0.3f, plane2Alpha);
+    glBegin(GL_TRIANGLES);
+    glVertex2f(-25, 0);
+    glVertex2f(-45, 30);
+    glVertex2f(-55, 0);
+    glVertex2f(-25, 0);
+    glVertex2f(-45, -30);
+    glVertex2f(-55, 0);
+    glEnd();
+    
+    // Tail fins
+    glBegin(GL_TRIANGLES);
+    glVertex2f(-5, 0);
+    glVertex2f(-15, 20);
+    glVertex2f(-20, 0);
+    glEnd();
+    
+    // Cockpit
+    glColor4f(0.3f, 0.8f, 1.0f, plane2Alpha * 1.2f);
+    glBegin(GL_QUADS);
+    glVertex2f(-45, 2);
+    glVertex2f(-55, 2);
+    glVertex2f(-55, -2);
+    glVertex2f(-45, -2);
+    glEnd();
+    
+    // Afterburner
+    float flamePulse2 = 0.6f + 0.4f * sin(animationTimer * 12.0f + 1.0f);
+    glBegin(GL_TRIANGLES);
+    glColor4f(1.0f, 0.5f, 0.0f, flamePulse2 * plane2Alpha);
+    glVertex2f(0, 3);
+    glVertex2f(0, -3);
+    glColor4f(1.0f, 0.2f, 0.0f, 0.0f);
+    glVertex2f(25, 0);
+    glEnd();
+    
+    glPopMatrix();
+    
+    // Vapor trails for plane 2
+    for (int t = 0; t < 8; t++) {
+        float trailX = plane2X + t * 12.0f;
+        float trailAlpha = plane2Alpha * 0.4f * (1.0f - t / 8.0f);
+        float turbulence = sin(animationTimer * 2.5f + t * 0.5f) * 2.0f;
+        glColor4f(0.95f, 0.97f, 1.0f, trailAlpha);
+        glBegin(GL_LINES);
+        glVertex2f(trailX, plane2Y + 3 + turbulence);
+        glVertex2f(trailX + 10, plane2Y + 3 + turbulence);
+        glVertex2f(trailX, plane2Y - 3 + turbulence);
+        glVertex2f(trailX + 10, plane2Y - 3 + turbulence);
+        glEnd();
+    }
     glLineWidth(1.0f);
     
     // Main title with glow effect - TOP GUN MAVERICK
@@ -248,11 +393,11 @@ void MenuSystem::render() {
         float boxW = boxWidth * hoverScale;
         float boxH = boxHeight * hoverScale;
         
-        // Selection box with gradient
-        if (isSelected) {
+        // Selection box with gradient - ONLY show if selected with fade
+        if (isSelected && currentAlpha > 0.5f) {
             // Outer glow - pulsing
             float glowPulse = 0.4f + 0.3f * sin(animationTimer * 4.0f);
-            glColor4f(1.0f, 0.75f, 0.2f, glowPulse);
+            glColor4f(1.0f, 0.75f, 0.2f, glowPulse * currentAlpha);
             glBegin(GL_QUADS);
             glVertex2f(xCenter - boxW * 0.55f, yPos - boxH * 0.55f);
             glVertex2f(xCenter + boxW * 0.55f, yPos - boxH * 0.55f);
@@ -283,21 +428,30 @@ void MenuSystem::render() {
             glEnd();
         }
         
-        // Box border - vibrant colors with fade
-        glLineWidth(isSelected ? 3.5f : 1.5f);
-        if (isSelected) {
+        // Box border - ONLY bright golden border if selected with sufficient alpha
+        if (isSelected && currentAlpha > 0.5f) {
+            glLineWidth(3.5f);
             float borderPulse = 0.85f + 0.15f * sin(animationTimer * 6.0f);
             glColor4f(1.0f * borderPulse, 0.80f * borderPulse, 0.30f * borderPulse, currentAlpha);  // Brighter gold
-        } else {
-            glColor4f(0.50f, 0.60f, 0.80f, 0.5f * currentAlpha);  // Lighter blue-grey with fade
+            glBegin(GL_LINE_LOOP);
+            glVertex2f(xCenter - boxW * 0.5f, yPos - boxH * 0.5f);
+            glVertex2f(xCenter + boxW * 0.5f, yPos - boxH * 0.5f);
+            glVertex2f(xCenter + boxW * 0.5f, yPos + boxH * 0.5f);
+            glVertex2f(xCenter - boxW * 0.5f, yPos + boxH * 0.5f);
+            glEnd();
+            glLineWidth(1.0f);
+        } else if (!isSelected) {
+            // Subtle border for unselected with fade
+            glLineWidth(1.5f);
+            glColor4f(0.50f, 0.60f, 0.80f, 0.3f * currentAlpha);  // Lighter blue-grey with fade
+            glBegin(GL_LINE_LOOP);
+            glVertex2f(xCenter - boxW * 0.5f, yPos - boxH * 0.5f);
+            glVertex2f(xCenter + boxW * 0.5f, yPos - boxH * 0.5f);
+            glVertex2f(xCenter + boxW * 0.5f, yPos + boxH * 0.5f);
+            glVertex2f(xCenter - boxW * 0.5f, yPos + boxH * 0.5f);
+            glEnd();
+            glLineWidth(1.0f);
         }
-        glBegin(GL_LINE_LOOP);
-        glVertex2f(xCenter - boxW * 0.5f, yPos - boxH * 0.5f);
-        glVertex2f(xCenter + boxW * 0.5f, yPos - boxH * 0.5f);
-        glVertex2f(xCenter + boxW * 0.5f, yPos + boxH * 0.5f);
-        glVertex2f(xCenter - boxW * 0.5f, yPos + boxH * 0.5f);
-        glEnd();
-        glLineWidth(1.0f);
         
         // Option text - bright and readable with fade
         if (isSelected) {
@@ -318,8 +472,8 @@ void MenuSystem::render() {
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
         }
         
-        // Animated arrow for selected - bright and visible with fade
-        if (isSelected) {
+        // Animated arrow for selected - ONLY show if selected with sufficient alpha
+        if (isSelected && currentAlpha > 0.5f) {
             float arrowBounce = sin(animationTimer * 8.0f) * 5.0f;
             float arrowPulse = 0.85f + 0.15f * sin(animationTimer * 10.0f);
             glColor4f(1.0f * arrowPulse, 0.90f * arrowPulse, 0.2f * arrowPulse, currentAlpha);  // Brighter gold

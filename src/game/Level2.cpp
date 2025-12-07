@@ -155,10 +155,11 @@ void Level2::createTerrain() {
     std::cout << "Level2: Creating terrain..." << std::endl;
     
     // Create just ONE mountain with model for fast loading - LARGER scale for visibility
-    std::string mountainModelPath = findAssetPath("assets/mountains/mountains/mountains.obj");
+    // Try FBX format for better geometry
+    std::string mountainModelPath = findAssetPath("assets/mountains/mountains/mountains.fbx");
     
     Obstacle* mountain = new Obstacle(0, 0, -250, 100, 120, 100, ObstacleType::MOUNTAIN);
-    bool modelLoaded = mountain->loadModel(mountainModelPath, 2.0f);  // Large scale for visibility
+    bool modelLoaded = mountain->loadModel(mountainModelPath, 20.0f);  // Much larger scale for visibility
     
     if (modelLoaded) {
         std::cout << "Level2: Mountain model loaded with scale 1.0!" << std::endl;
@@ -652,6 +653,13 @@ void Level2::fireMissile() {
     Missile* missile = new Missile(missileStartX, missileStartY, missileStartZ, forwardX, forwardY, forwardZ, true);
     missile->setSpeed(3.0f);
     
+    // Enable homing and set target (realistic turn rate)
+    if (lockedTarget != nullptr) {
+        missile->setTargetEnemy(lockedTarget);
+        missile->setHoming(true);
+        missile->setTurnRate(30.0f);  // Realistic 30 degrees/second turn rate
+    }
+    
     // Load missile model
     std::string missileModelPath = findAssetPath("assets/missle/mk82snak_obj/Mk 82 Snakeye.obj");
     if (!missile->loadModel(missileModelPath, 0.5f)) {
@@ -722,6 +730,11 @@ void Level2::spawnEnemyMissile() {
         
         Missile* missile = new Missile(ex, ey, ez, dx, dy, dz, false);
         missile->setSpeed(2.0f);
+        
+        // Enable homing to track player (realistic turn rate)
+        missile->setTargetPlayer(player);
+        missile->setHoming(true);
+        missile->setTurnRate(30.0f);  // Realistic 30 degrees/second turn rate
         
         // Load missile model
         std::string missileModelPath = findAssetPath("assets/missle/mk82snak_obj/Mk 82 Snakeye.obj");

@@ -49,8 +49,8 @@ void CoopMode::init() {
     std::cout << "========================================" << std::endl;
     std::cout << "      CO-OP DOGFIGHT MODE              " << std::endl;
     std::cout << "========================================" << std::endl;
-    std::cout << "Player 1 (Red): WASD + QE + Left-Click to fire" << std::endl;
-    std::cout << "Player 2 (Blue): IJKL + UO + Right-Click to fire" << std::endl;
+    std::cout << "Player 1 (Red): WASD + QE + F to fire" << std::endl;
+    std::cout << "Player 2 (Blue): IJKL + UO + P to fire" << std::endl;
     std::cout << std::endl;
     
     // Create players at opposite ends of arena
@@ -174,6 +174,11 @@ void CoopMode::updatePlayer1(float deltaTime, const bool* keys) {
     p1Keys['2'] = keys['2'];
     p1Keys[' '] = keys[' '];
     
+    // Fire with F key
+    if ((keys['f'] || keys['F']) && player1FireCooldown <= 0) {
+        fireMissilePlayer1();
+    }
+    
     player1->update(deltaTime, p1Keys);
     
     // Keep player in bounds
@@ -201,6 +206,11 @@ void CoopMode::updatePlayer2(float deltaTime, const bool* keys) {
     p2Keys['1'] = keys['8'];  // 8 -> decrease speed
     p2Keys['2'] = keys['9'];  // 9 -> increase speed
     p2Keys[' '] = keys[' '];  // Share space for barrel roll (or use different key)
+    
+    // Fire with P key
+    if ((keys['p'] || keys['P']) && player2FireCooldown <= 0) {
+        fireMissilePlayer2();
+    }
     
     player2->update(deltaTime, p2Keys);
     
@@ -253,7 +263,8 @@ void CoopMode::checkCollisions() {
             player1->getPosition(p1x, p1y, p1z);
             float dist = std::sqrt(std::pow(mx - p1x, 2) + std::pow(my - p1y, 2) + std::pow(mz - p1z, 2));
             
-            if (dist < 15.0f) {  // Hit!
+            float collisionDist = missile->getBoundingRadius() + player1->getBoundingRadius();
+            if (dist < collisionDist) {  // Hit!
                 player1Health -= 25;
                 player2Score += 100;
                 missile->deactivate();
@@ -267,7 +278,8 @@ void CoopMode::checkCollisions() {
             player2->getPosition(p2x, p2y, p2z);
             float dist = std::sqrt(std::pow(mx - p2x, 2) + std::pow(my - p2y, 2) + std::pow(mz - p2z, 2));
             
-            if (dist < 15.0f) {  // Hit!
+            float collisionDist = missile->getBoundingRadius() + player2->getBoundingRadius();
+            if (dist < collisionDist) {  // Hit!
                 player2Health -= 25;
                 player1Score += 100;
                 missile->deactivate();
@@ -315,6 +327,7 @@ void CoopMode::fireMissilePlayer1() {
     
     Missile* missile = new Missile(px, py, pz, forwardX, forwardY, forwardZ, true);
     missile->setSpeed(5.0f);
+    missile->setOwner(0);  // Player 1
     missiles.push_back(missile);
     
     player1Ammo--;
@@ -345,6 +358,7 @@ void CoopMode::fireMissilePlayer2() {
     
     Missile* missile = new Missile(px, py, pz, forwardX, forwardY, forwardZ, false);
     missile->setSpeed(5.0f);
+    missile->setOwner(1);  // Player 2
     missiles.push_back(missile);
     
     player2Ammo--;
@@ -786,14 +800,8 @@ void CoopMode::restart() {
 }
 
 void CoopMode::handleMouse(int button, int buttonState, int x, int y) {
-    if (button == GLUT_LEFT_BUTTON && buttonState == GLUT_DOWN) {
-        // Player 1 fires with left-click
-        fireMissilePlayer1();
-    }
-    if (button == GLUT_RIGHT_BUTTON && buttonState == GLUT_DOWN) {
-        // Player 2 fires with right-click
-        fireMissilePlayer2();
-    }
+    // Mouse controls disabled - using keyboard for firing
+    // Players use F and P keys to fire
 }
 
 void CoopMode::handleMouseMotion(int x, int y) {
